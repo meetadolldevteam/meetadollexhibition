@@ -1,0 +1,28 @@
+"Do not touch any frontend files. Build a backend only using Node.js and Express inside a server/ folder. Install these packages: express, @supabase/supabase-js, bcryptjs, jsonwebtoken, cors, dotenv, node-cron, express-validator, uuid, resend
+Use these environment variables: SUPABASE_URL, SUPABASE_SERVICE_KEY, JWT_SECRET, PORT
+Build the following:
+server/index.js — main Express entry point, enable CORS, wire all routes, run on PORT
+server/config/supabase.js — initialize Supabase using service role key, never expose to frontend
+server/middleware/auth.js — verify JWT on protected routes
+server/middleware/roleCheck.js — admin only route protection
+server/routes/auth.js + controllers/authController.js:
+POST /api/auth/register — hash password with bcryptjs, save user
+POST /api/auth/login — verify password, return JWT
+POST /api/auth/verify-email
+server/routes/stalls.js + controllers/stallController.js:
+GET /api/stalls?exhibition_id=x — return available stalls only
+POST /api/stalls/hold — create held reservation, hold_expires_at = now + 15 minutes, prevent double booking with unique constraint
+server/routes/reservations.js + controllers/reservationController.js:
+GET /api/reservations/mine — vendor sees their own reservations
+GET /api/reservations/:id
+server/routes/payments.js + controllers/paymentController.js:
+POST /api/payments/initiate — create pending payment, return Flutterwave payment link
+POST /api/payments/webhook — verify payment server-to-server with Flutterwave, confirm reservation, mark stall as reserved, send confirmation email
+server/routes/admin.js + controllers/adminController.js:
+GET /api/admin/reservations
+PATCH /api/admin/stalls/:id — block or release a stall
+DELETE /api/admin/reservations/:id — cancel reservation
+POST /api/admin/announce — email all confirmed vendors
+server/services/email.js — send confirmation email containing: reservation ID, vendor name, stall number, amount paid, exhibition name, venue, date, check-in instructions, organizer contact. Use Resend.
+server/services/holdCleanup.js — cron job every 5 minutes, expire held reservations past hold_expires_at, release stall back to available
+Database tables already exist in Supabase: exhibitions, users, stalls, reservations, payments. Do not create or modify any tables."
