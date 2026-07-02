@@ -1,7 +1,14 @@
-import { Resend } from "resend";
 import { logger } from "../lib/logger";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+function getResendClient() {
+  const key = process.env.RESEND_API_KEY;
+  if (!key || key.startsWith("re_placeholder")) {
+    return null;
+  }
+  const { Resend } = require("resend");
+  return new Resend(key) as import("resend").Resend;
+}
+
 const FROM_EMAIL = process.env.FROM_EMAIL ?? "noreply@meetadoll.com";
 
 interface ConfirmationEmailData {
@@ -17,6 +24,12 @@ interface ConfirmationEmailData {
 }
 
 export async function sendConfirmationEmail(data: ConfirmationEmailData): Promise<void> {
+  const resend = getResendClient();
+  if (!resend) {
+    logger.warn({ reservationId: data.reservationId }, "RESEND_API_KEY not configured — skipping confirmation email");
+    return;
+  }
+
   const { to, vendorName, reservationId, stallNumber, amountPaid, exhibitionName, venue, date, organizerContact } = data;
 
   try {
@@ -53,6 +66,12 @@ export async function sendConfirmationEmail(data: ConfirmationEmailData): Promis
 }
 
 export async function sendAnnouncementEmail(to: string, vendorName: string, subject: string, message: string): Promise<void> {
+  const resend = getResendClient();
+  if (!resend) {
+    logger.warn({ to }, "RESEND_API_KEY not configured — skipping announcement email");
+    return;
+  }
+
   try {
     await resend.emails.send({
       from: FROM_EMAIL,

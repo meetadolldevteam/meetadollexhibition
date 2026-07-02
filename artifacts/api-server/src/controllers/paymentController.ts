@@ -5,10 +5,21 @@ import { logger } from "../lib/logger";
 import { sendConfirmationEmail } from "../services/email";
 import { AuthRequest } from "../middleware/auth";
 
-const FLW_SECRET_KEY = process.env.FLW_SECRET_KEY;
 const FLW_BASE = "https://api.flutterwave.com/v3";
 
+function getFlwKey(): string | null {
+  const key = process.env.FLW_SECRET_KEY;
+  if (!key || key.startsWith("FLWSECK_placeholder")) return null;
+  return key;
+}
+
 export async function initiatePayment(req: AuthRequest, res: Response): Promise<void> {
+  const flwKey = getFlwKey();
+  if (!flwKey) {
+    res.status(503).json({ error: "Payment gateway not yet configured. FLW_SECRET_KEY is pending." });
+    return;
+  }
+
   const { reservation_id } = req.body;
   const user = req.user!;
 
@@ -45,7 +56,7 @@ export async function initiatePayment(req: AuthRequest, res: Response): Promise<
     const flwResponse = await fetch(`${FLW_BASE}/payments`, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${FLW_SECRET_KEY}`,
+        Authorization: `Bearer ${flwKey}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
@@ -91,10 +102,16 @@ export async function initiatePayment(req: AuthRequest, res: Response): Promise<
 }
 
 export async function paymentWebhook(req: Request, res: Response): Promise<void> {
-  const secretHash = process.env.FLW_WEBHOOK_HASH;
+  const flwKey = getFlwKey();
+  if (!flwKey) {
+    res.status(503).json({ error: "Payment gateway not yet configured" });
+    return;
+  }
+
+  const webhookHash = process.env.FLW_WEBHOOK_HASH;
   const signature = req.headers["verif-hash"];
 
-  if (secretHash && signature !== secretHash) {
+  if (webhookHash && !webhookHash.startsWith("placeholder") && signature !== webhookHash) {
     res.status(401).json({ error: "Invalid webhook signature" });
     return;
   }
@@ -108,10 +125,13 @@ export async function paymentWebhook(req: Request, res: Response): Promise<void>
 
   try {
     const verifyResponse = await fetch(`${FLW_BASE}/transactions/${data.id}/verify`, {
-      headers: { Authorization: `Bearer ${FLW_SECRET_KEY}` },
+      headers: { Authorization: `Bearer ${flwKey}` },
     });
 
-    const verifyData = (await verifyResponse.json()) as { status: string; data?: { status: string; tx_ref: string; amount: number; currency: string } };
+    const verifyData = (await verifyResponse.json()) as {
+      status: string;
+      data?: { status: string; tx_ref: string; amount: number; currency: string; flw_ref: string };
+    };
 
     if (verifyData.status !== "success" || verifyData.data?.status !== "successful") {
       logger.warn({ txRef: data.tx_ref }, "Payment verification failed");
@@ -119,7 +139,7 @@ export async function paymentWebhook(req: Request, res: Response): Promise<void>
       return;
     }
 
-    const { tx_ref, amount } = verifyData.data;
+    const { tx_ref, amount, flw_ref } = verifyData.data;
 
     const { data: payment, error: paymentErr } = await supabase
       .from("payments")
@@ -135,7 +155,7 @@ export async function paymentWebhook(req: Request, res: Response): Promise<void>
 
     await supabase
       .from("payments")
-      .update({ status: "successful", amount, payment_ref: data.flw_ref })
+      .update({ status: "successful", amount, payment_ref: flw_ref })
       .eq("tx_ref", tx_ref);
 
     const { data: reservation } = await supabase

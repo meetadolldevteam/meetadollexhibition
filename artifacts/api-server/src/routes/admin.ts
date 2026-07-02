@@ -2,6 +2,7 @@ import { Router } from "express";
 import { body } from "express-validator";
 import { authenticate } from "../middleware/auth";
 import { requireAdmin } from "../middleware/roleCheck";
+import { validate } from "../middleware/validate";
 import {
   getAllReservations,
   updateStall,
@@ -14,11 +15,12 @@ const router = Router();
 router.use(authenticate, requireAdmin);
 
 router.get("/reservations", getAllReservations);
-router.patch("/stalls/:id", [body("status").notEmpty()], updateStall);
+router.patch("/stalls/:id", [body("status").notEmpty()], validate, updateStall);
 router.delete("/reservations/:id", cancelReservation);
 router.post(
   "/announce",
   [body("subject").notEmpty(), body("message").notEmpty()],
+  validate,
   announceToVendors
 );
 
