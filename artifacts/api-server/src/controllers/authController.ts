@@ -3,6 +3,13 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { supabase } from "../config/supabase";
 import { logger } from "../lib/logger";
+import {
+  signAccessToken,
+  signRefreshToken,
+  verifyRefreshToken,
+  REFRESH_COOKIE_NAME,
+  refreshCookieOptions,
+} from "../lib/tokens";
 
 export async function register(req: Request, res: Response): Promise<void> {
   const { email, password, name, phone, business_name } = req.body;
@@ -75,21 +82,66 @@ export async function login(req: Request, res: Response): Promise<void> {
       return;
     }
 
-    const secret = process.env.JWT_SECRET!;
-    const token = jwt.sign(
-      { id: user.id, email: user.email, role: user.role },
-      secret,
-      { expiresIn: "24h" }
-    );
+    const accessToken = signAccessToken({ id: user.id, email: user.email, role: user.role });
+    const refreshToken = signRefreshToken(user.id);
+
+    res.cookie(REFRESH_COOKIE_NAME, refreshToken, refreshCookieOptions);
 
     res.json({
-      token,
+      token: accessToken,
       user: { id: user.id, email: user.email, name: user.name, role: user.role },
     });
   } catch (err) {
     logger.error({ err }, "Login error");
     res.status(500).json({ error: "Internal server error" });
   }
+}
+
+export async function refresh(req: Request, res: Response): Promise<void> {
+  const token = req.cookies?.[REFRESH_COOKIE_NAME];
+
+  if (!token) {
+    res.status(401).json({ error: "Missing refresh token", code: "TOKEN_INVALID" });
+    return;
+  }
+
+  try {
+    const decoded = verifyRefreshToken(token);
+
+    const { data: user, error } = await supabase
+      .from("users")
+      .select("id, email, name, role")
+      .eq("id", decoded.id)
+      .single();
+
+    if (error || !user) {
+      res.clearCookie(REFRESH_COOKIE_NAME, { path: "/api/auth" });
+      res.status(401).json({ error: "Invalid refresh token", code: "TOKEN_INVALID" });
+      return;
+    }
+
+    const accessToken = signAccessToken({ id: user.id, email: user.email, role: user.role });
+    const newRefreshToken = signRefreshToken(user.id);
+
+    res.cookie(REFRESH_COOKIE_NAME, newRefreshToken, refreshCookieOptions);
+
+    res.json({
+      token: accessToken,
+      user: { id: user.id, email: user.email, name: user.name, role: user.role },
+    });
+  } catch (err) {
+    res.clearCookie(REFRESH_COOKIE_NAME, { path: "/api/auth" });
+    if (err instanceof jwt.TokenExpiredError) {
+      res.status(401).json({ error: "Refresh token expired", code: "TOKEN_EXPIRED" });
+      return;
+    }
+    res.status(401).json({ error: "Invalid refresh token", code: "TOKEN_INVALID" });
+  }
+}
+
+export async function logout(_req: Request, res: Response): Promise<void> {
+  res.clearCookie(REFRESH_COOKIE_NAME, { path: "/api/auth" });
+  res.json({ message: "Logged out" });
 }
 
 export async function verifyEmail(req: Request, res: Response): Promise<void> {

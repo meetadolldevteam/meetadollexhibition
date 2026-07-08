@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { body } from "express-validator";
-import { register, login, verifyEmail } from "../controllers/authController";
+import { register, login, verifyEmail, refresh, logout } from "../controllers/authController";
 import { validate } from "../middleware/validate";
 import { loginRateLimiter, registerRateLimiter } from "../middleware/rateLimit";
 
@@ -30,5 +30,8 @@ router.post(
 );
 
 router.post("/verify-email", [body("token").notEmpty()], validate, verifyEmail);
+
+router.post("/refresh", refresh);
+router.post("/logout", logout);
 
 export default router;
