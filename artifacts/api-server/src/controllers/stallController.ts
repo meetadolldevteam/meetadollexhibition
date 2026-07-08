@@ -34,7 +34,7 @@ export async function getAvailableStalls(req: AuthRequest, res: Response): Promi
 }
 
 export async function holdStall(req: AuthRequest, res: Response): Promise<void> {
-  const { stall_id, exhibition_id } = req.body;
+  const { stall_id } = req.body;
   const userId = req.user!.id;
 
   try {
@@ -55,6 +55,7 @@ export async function holdStall(req: AuthRequest, res: Response): Promise<void> 
     }
 
     const holdExpiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
+    const reservationCode = `RES-${uuidv4().slice(0, 8).toUpperCase()}`;
 
     const { data: reservation, error: resError } = await supabase
       .from("reservations")
@@ -62,10 +63,9 @@ export async function holdStall(req: AuthRequest, res: Response): Promise<void> 
         id: uuidv4(),
         user_id: userId,
         stall_id,
-        exhibition_id,
         status: "held",
         hold_expires_at: holdExpiresAt,
-        amount: stall.price,
+        reservation_code: reservationCode,
       })
       .select()
       .single();

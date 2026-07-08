@@ -338,9 +338,6 @@ importers:
       '@replit/vite-plugin-runtime-error-modal':
         specifier: 'catalog:'
         version: 0.0.6
-      '@supabase/supabase-js':
-        specifier: ^2.99.3
-        version: 2.110.0
       '@tanstack/react-query':
         specifier: 'catalog:'
         version: 5.101.0(react@19.1.0)

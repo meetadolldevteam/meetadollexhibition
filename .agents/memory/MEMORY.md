@@ -1,0 +1,2 @@
+- [Meetadoll Supabase schema quirks](meetadoll-supabase-schema.md) — real table columns differ from typical assumptions (no updated_at/size/amount/date columns); check live schema before writing queries.
+- [Meetadoll auth architecture](meetadoll-auth-architecture.md) — JWT access+refresh split (24h/7d httpOnly cookie) and frontend API client pattern (in-memory token, auto-refresh-on-401).

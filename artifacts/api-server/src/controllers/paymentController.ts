@@ -28,9 +28,8 @@ export async function initiatePayment(req: AuthRequest, res: Response): Promise<
     const { data: reservation, error: resError } = await supabase
       .from("reservations")
       .select(`
-        id, amount, status, stall_id,
-        stalls ( stall_number ),
-        exhibitions ( name, venue )
+        id, status, stall_id,
+        stalls ( stall_number, price, exhibitions ( name, venue ) )
       `)
       .eq("id", reservation_id)
       .eq("user_id", user.id)
@@ -43,6 +42,15 @@ export async function initiatePayment(req: AuthRequest, res: Response): Promise<
 
     if (reservation.status !== "held") {
       res.status(400).json({ error: "Reservation is not in held status" });
+      return;
+    }
+
+    const stallData = (reservation as any).stalls;
+    const reservationAmount = stallData?.price;
+
+    if (typeof reservationAmount !== "number") {
+      logger.error({ reservation_id }, "Could not resolve reservation amount from stall price");
+      res.status(500).json({ error: "Internal server error" });
       return;
     }
 
@@ -62,12 +70,12 @@ export async function initiatePayment(req: AuthRequest, res: Response): Promise<
       },
       body: JSON.stringify({
         email: userData?.email ?? user.email,
-        amount: Math.round(reservation.amount * 100),
+        amount: Math.round(reservationAmount * 100),
         reference: txRef,
         callback_url: `${process.env.FRONTEND_URL ?? ""}/payment/callback`,
         metadata: {
           reservation_id,
-          exhibition_name: (reservation as any).exhibitions?.name ?? "",
+          exhibition_name: stallData?.exhibitions?.name ?? "",
         },
       }),
     });
@@ -87,9 +95,9 @@ export async function initiatePayment(req: AuthRequest, res: Response): Promise<
     await supabase.from("payments").insert({
       id: uuidv4(),
       reservation_id,
-      user_id: user.id,
-      amount: reservation.amount,
-      tx_ref: txRef,
+      amount: reservationAmount,
+      transaction_reference: txRef,
+      gateway: "paystack",
       status: "pending",
     });
 
@@ -150,27 +158,26 @@ export async function paymentWebhook(req: Request, res: Response): Promise<void>
 
     const { data: payment, error: paymentErr } = await supabase
       .from("payments")
-      .select("id, reservation_id, user_id")
-      .eq("tx_ref", reference)
+      .select("id, reservation_id")
+      .eq("transaction_reference", reference)
       .single();
 
     if (paymentErr || !payment) {
-      logger.error({ reference }, "Payment record not found");
+      logger.error({ reference, paystackTxId }, "Payment record not found");
       res.status(200).json({ message: "Payment record not found" });
       return;
     }
 
     await supabase
       .from("payments")
-      .update({ status: "successful", amount: amountNaira, payment_ref: String(paystackTxId) })
-      .eq("tx_ref", reference);
+      .update({ status: "successful", amount: amountNaira })
+      .eq("transaction_reference", reference);
 
     const { data: reservation } = await supabase
       .from("reservations")
       .select(`
-        id, stall_id,
-        stalls ( stall_number ),
-        exhibitions ( name, venue, date, organizer_contact ),
+        id, stall_id, user_id,
+        stalls ( stall_number, exhibitions ( name, venue, start_date ) ),
         users ( name, email )
       `)
       .eq("id", payment.reservation_id)
@@ -187,8 +194,8 @@ export async function paymentWebhook(req: Request, res: Response): Promise<void>
         .update({ status: "reserved" })
         .eq("id", reservation.stall_id);
 
-      const exh = (reservation as any).exhibitions;
       const stall = (reservation as any).stalls;
+      const exh = stall?.exhibitions;
       const user = (reservation as any).users;
 
       if (user?.email) {
@@ -200,8 +207,8 @@ export async function paymentWebhook(req: Request, res: Response): Promise<void>
           amountPaid: amountNaira,
           exhibitionName: exh?.name ?? "Meetadoll Exhibition",
           venue: exh?.venue ?? "TBD",
-          date: exh?.date ?? "TBD",
-          organizerContact: exh?.organizer_contact ?? "info@meetadoll.com",
+          date: exh?.start_date ?? "TBD",
+          organizerContact: "info@meetadoll.com",
         });
       }
     }

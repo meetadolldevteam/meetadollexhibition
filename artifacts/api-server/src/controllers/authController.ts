@@ -12,7 +12,7 @@ import {
 } from "../lib/tokens";
 
 export async function register(req: Request, res: Response): Promise<void> {
-  const { email, password, name, phone, business_name } = req.body;
+  const { email, password, name, phone } = req.body;
 
   try {
     const { data: existing } = await supabase
@@ -27,11 +27,6 @@ export async function register(req: Request, res: Response): Promise<void> {
     }
 
     const passwordHash = await bcrypt.hash(password, 12);
-    const verificationToken = jwt.sign(
-      { purpose: "email_verification", email },
-      process.env.JWT_SECRET!,
-      { expiresIn: "1h" }
-    );
 
     const { data: user, error } = await supabase
       .from("users")
@@ -40,10 +35,8 @@ export async function register(req: Request, res: Response): Promise<void> {
         password_hash: passwordHash,
         name,
         phone,
-        business_name,
         role: "vendor",
         email_verified: false,
-        verification_token: verificationToken,
       })
       .select("id, email, name, role")
       .single();
@@ -53,6 +46,16 @@ export async function register(req: Request, res: Response): Promise<void> {
       res.status(500).json({ error: "Failed to create user" });
       return;
     }
+
+    // The verification token is a self-verifying signed JWT (email + purpose claim),
+    // so no verification_token column is needed on the users table.
+    const verificationToken = jwt.sign(
+      { purpose: "email_verification", email },
+      process.env.JWT_SECRET!,
+      { expiresIn: "1h" }
+    );
+
+    void verificationToken; // TODO: send via email once RESEND_API_KEY flow is wired to this token
 
     res.status(201).json({ message: "Registration successful. Please verify your email.", user });
   } catch (err) {
@@ -167,19 +170,23 @@ export async function verifyEmail(req: Request, res: Response): Promise<void> {
 
     const { data: user, error } = await supabase
       .from("users")
-      .select("id")
-      .eq("verification_token", token)
+      .select("id, email_verified")
       .eq("email", decoded.email)
       .single();
 
     if (error || !user) {
-      res.status(400).json({ error: "Invalid or already-used verification token" });
+      res.status(400).json({ error: "Invalid verification token" });
+      return;
+    }
+
+    if (user.email_verified) {
+      res.status(400).json({ error: "Email already verified" });
       return;
     }
 
     await supabase
       .from("users")
-      .update({ email_verified: true, verification_token: null })
+      .update({ email_verified: true })
       .eq("id", user.id);
 
     res.json({ message: "Email verified successfully" });

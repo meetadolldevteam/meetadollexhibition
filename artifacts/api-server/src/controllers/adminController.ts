@@ -9,9 +9,8 @@ export async function getAllReservations(_req: Request, res: Response): Promise<
       .from("reservations")
       .select(`
         *,
-        users ( name, email, business_name ),
-        stalls ( stall_number, size, price ),
-        exhibitions ( name, venue, date )
+        users ( name, email ),
+        stalls ( stall_number, package, price, exhibitions ( name, venue, start_date, end_date ) )
       `)
       .order("created_at", { ascending: false });
 
@@ -99,11 +98,11 @@ export async function announceToVendors(req: Request, res: Response): Promise<vo
   try {
     let query = supabase
       .from("reservations")
-      .select("users ( name, email )")
+      .select("users ( name, email ), stalls!inner ( exhibition_id )")
       .eq("status", "confirmed");
 
     if (exhibition_id) {
-      query = query.eq("exhibition_id", exhibition_id);
+      query = query.eq("stalls.exhibition_id", exhibition_id);
     }
 
     const { data, error } = await query;

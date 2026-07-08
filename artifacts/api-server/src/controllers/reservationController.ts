@@ -11,8 +11,7 @@ export async function getMyReservations(req: AuthRequest, res: Response): Promis
       .from("reservations")
       .select(`
         *,
-        stalls ( stall_number, size, price ),
-        exhibitions ( name, venue, date )
+        stalls ( stall_number, package, price, exhibitions ( name, venue, start_date, end_date ) )
       `)
       .eq("user_id", userId)
       .order("created_at", { ascending: false });
@@ -85,9 +84,8 @@ export async function getReservation(req: AuthRequest, res: Response): Promise<v
       .from("reservations")
       .select(`
         *,
-        stalls ( stall_number, size, price ),
-        exhibitions ( name, venue, date ),
-        payments ( status, amount, payment_ref )
+        stalls ( stall_number, package, price, exhibitions ( name, venue, start_date, end_date ) ),
+        payments ( status, amount, transaction_reference )
       `)
       .eq("id", id);
 

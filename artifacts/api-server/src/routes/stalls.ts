@@ -13,7 +13,7 @@ router.post(
   "/hold",
   authenticate,
   stallHoldRateLimiter,
-  [body("stall_id").notEmpty(), body("exhibition_id").notEmpty()],
+  [body("stall_id").notEmpty()],
   validate,
   holdStall
 );
