@@ -4,8 +4,11 @@ import pinoHttp from "pino-http";
 import router from "./routes";
 import { logger } from "./lib/logger";
 import { startHoldCleanupJob } from "./services/holdCleanup";
+import { generalApiRateLimiter } from "./middleware/rateLimit";
 
 const app: Express = express();
+
+app.set("trust proxy", 1);
 
 app.use(
   pinoHttp({
@@ -36,7 +39,7 @@ app.use(
 );
 app.use(express.urlencoded({ extended: true }));
 
-app.use("/api", router);
+app.use("/api", generalApiRateLimiter, router);
 
 startHoldCleanupJob();
 

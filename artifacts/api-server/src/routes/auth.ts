@@ -2,11 +2,13 @@ import { Router } from "express";
 import { body } from "express-validator";
 import { register, login, verifyEmail } from "../controllers/authController";
 import { validate } from "../middleware/validate";
+import { loginRateLimiter, registerRateLimiter } from "../middleware/rateLimit";
 
 const router = Router();
 
 router.post(
   "/register",
+  registerRateLimiter,
   [
     body("email").isEmail().normalizeEmail(),
     body("password").isLength({ min: 8 }),
@@ -18,6 +20,7 @@ router.post(
 
 router.post(
   "/login",
+  loginRateLimiter,
   [
     body("email").isEmail().normalizeEmail(),
     body("password").notEmpty(),

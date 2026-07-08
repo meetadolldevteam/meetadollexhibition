@@ -1,7 +1,6 @@
 import { Request, Response } from "express";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-import { v4 as uuidv4 } from "uuid";
 import { supabase } from "../config/supabase";
 import { logger } from "../lib/logger";
 
@@ -21,7 +20,11 @@ export async function register(req: Request, res: Response): Promise<void> {
     }
 
     const passwordHash = await bcrypt.hash(password, 12);
-    const verificationToken = uuidv4();
+    const verificationToken = jwt.sign(
+      { purpose: "email_verification", email },
+      process.env.JWT_SECRET!,
+      { expiresIn: "1h" }
+    );
 
     const { data: user, error } = await supabase
       .from("users")
@@ -76,7 +79,7 @@ export async function login(req: Request, res: Response): Promise<void> {
     const token = jwt.sign(
       { id: user.id, email: user.email, role: user.role },
       secret,
-      { expiresIn: "7d" }
+      { expiresIn: "24h" }
     );
 
     res.json({
@@ -93,14 +96,32 @@ export async function verifyEmail(req: Request, res: Response): Promise<void> {
   const { token } = req.body;
 
   try {
+    let decoded: { purpose: string; email: string };
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET!) as { purpose: string; email: string };
+    } catch (jwtErr) {
+      if (jwtErr instanceof jwt.TokenExpiredError) {
+        res.status(401).json({ error: "Verification token has expired. Please request a new verification email." });
+        return;
+      }
+      res.status(400).json({ error: "Invalid verification token" });
+      return;
+    }
+
+    if (decoded.purpose !== "email_verification") {
+      res.status(400).json({ error: "Invalid verification token" });
+      return;
+    }
+
     const { data: user, error } = await supabase
       .from("users")
       .select("id")
       .eq("verification_token", token)
+      .eq("email", decoded.email)
       .single();
 
     if (error || !user) {
-      res.status(400).json({ error: "Invalid or expired verification token" });
+      res.status(400).json({ error: "Invalid or already-used verification token" });
       return;
     }
 
