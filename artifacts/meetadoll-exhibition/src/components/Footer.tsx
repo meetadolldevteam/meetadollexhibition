@@ -1,4 +1,5 @@
 import { MapPin, Phone, Instagram, ArrowUpRight, MessageCircle } from "lucide-react";
+import { Link } from "react-router-dom";
 import ScrollReveal from "./ScrollReveal";
 
 const INSTAGRAM_URL = "https://www.instagram.com/meetadoll_exhibition?igsh=MWhvZjM2NG1rejRpZA==";
@@ -114,7 +115,11 @@ const Footer = () => (
 
         <div className="flex flex-col md:flex-row justify-between gap-3 text-xs text-background/50 font-sans-grotesk">
           <p>© {new Date().getFullYear()} Meetadoll Exhibition. All rights reserved.</p>
-          <p>@meetadoll_exhibition</p>
+          <div className="flex items-center gap-4">
+            <Link to="/terms" className="hover:text-background/80 transition-colors">Terms &amp; Conditions</Link>
+            <Link to="/privacy" className="hover:text-background/80 transition-colors">Privacy Policy</Link>
+            <span>@meetadoll_exhibition</span>
+          </div>
         </div>
       </div>
     </footer>

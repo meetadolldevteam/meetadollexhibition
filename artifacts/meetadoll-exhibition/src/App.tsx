@@ -11,6 +11,8 @@ import RegisterPage from "./pages/RegisterPage.tsx";
 import PaymentCallbackPage from "./pages/PaymentCallbackPage.tsx";
 import MyReservationsPage from "./pages/MyReservationsPage.tsx";
 import AdminDashboardPage from "./pages/AdminDashboardPage.tsx";
+import TermsPage from "./pages/TermsPage.tsx";
+import PrivacyPage from "./pages/PrivacyPage.tsx";
 
 const queryClient = new QueryClient();
 
@@ -28,6 +30,8 @@ const App = () => (
             <Route path="/payment/callback" element={<PaymentCallbackPage />} />
             <Route path="/my-reservations" element={<MyReservationsPage />} />
             <Route path="/admin" element={<AdminDashboardPage />} />
+            <Route path="/terms" element={<TermsPage />} />
+            <Route path="/privacy" element={<PrivacyPage />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>

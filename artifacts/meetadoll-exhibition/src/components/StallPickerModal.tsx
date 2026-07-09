@@ -168,7 +168,7 @@ export default function StallPickerModal({ open, onOpenChange }: Props) {
             <div className="flex items-center gap-4 text-xs text-muted-foreground py-1">
               <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-primary inline-block" /> Selected</span>
               <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded border border-border inline-block" /> Available</span>
-              <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-muted inline-block" /> Taken</span>
+              <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-zinc-500 inline-block" /> Taken</span>
             </div>
 
             <div className="overflow-y-auto flex-1 -mx-2 px-2">
@@ -192,7 +192,7 @@ export default function StallPickerModal({ open, onOpenChange }: Props) {
                         className={[
                           "aspect-square rounded-md text-xs font-semibold border transition-all flex items-center justify-center",
                           !available
-                            ? "bg-muted text-muted-foreground border-transparent cursor-not-allowed line-through"
+                            ? "bg-zinc-500 text-white border-zinc-500 cursor-not-allowed opacity-80"
                             : isSelected
                             ? "bg-primary text-primary-foreground border-primary scale-105 shadow"
                             : "bg-background border-border hover:border-primary hover:text-primary",
