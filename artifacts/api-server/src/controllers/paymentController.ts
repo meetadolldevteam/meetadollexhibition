@@ -29,7 +29,7 @@ export async function initiatePayment(req: AuthRequest, res: Response): Promise<
       .from("reservations")
       .select(`
         id, status, stall_id,
-        stalls ( stall_number, price, exhibitions ( name, venue ) )
+        stalls ( stall_number, price, package, exhibitions ( name, venue ) )
       `)
       .eq("id", reservation_id)
       .eq("user_id", user.id)
@@ -177,7 +177,7 @@ export async function paymentWebhook(req: Request, res: Response): Promise<void>
       .from("reservations")
       .select(`
         id, stall_id, user_id,
-        stalls ( stall_number, exhibitions ( name, venue, start_date ) ),
+        stalls ( stall_number, package, exhibitions ( name, venue, start_date ) ),
         users ( name, email )
       `)
       .eq("id", payment.reservation_id)
@@ -204,11 +204,12 @@ export async function paymentWebhook(req: Request, res: Response): Promise<void>
           vendorName: user.name ?? user.email,
           reservationId: reservation.id,
           stallNumber: stall?.stall_number ?? "N/A",
+          stallPackage: stall?.package ?? "standard",
           amountPaid: amountNaira,
           exhibitionName: exh?.name ?? "Meetadoll Exhibition",
           venue: exh?.venue ?? "TBD",
           date: exh?.start_date ?? "TBD",
-          organizerContact: "info@meetadoll.com",
+          organizerContact: "+234 906 360 4449",
         });
       }
     }

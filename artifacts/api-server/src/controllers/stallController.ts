@@ -1,8 +1,40 @@
-import { Response } from "express";
+import { Request, Response } from "express";
 import { v4 as uuidv4 } from "uuid";
 import { supabase } from "../config/supabase";
 import { logger } from "../lib/logger";
 import { AuthRequest } from "../middleware/auth";
+
+export async function getStallStats(req: Request, res: Response): Promise<void> {
+  const { exhibition_id } = req.query;
+
+  if (!exhibition_id) {
+    res.status(400).json({ error: "exhibition_id is required" });
+    return;
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from("stalls")
+      .select("status")
+      .eq("exhibition_id", exhibition_id);
+
+    if (error) {
+      logger.error({ err: error }, "Failed to fetch stall stats");
+      res.status(500).json({ error: "Failed to fetch stall stats" });
+      return;
+    }
+
+    const total = data.length;
+    const available = data.filter((s) => s.status === "available").length;
+    const held = data.filter((s) => s.status === "held").length;
+    const reserved = data.filter((s) => s.status === "reserved").length;
+
+    res.json({ total, available, held, reserved });
+  } catch (err) {
+    logger.error({ err }, "Get stall stats error");
+    res.status(500).json({ error: "Internal server error" });
+  }
+}
 
 export async function getAvailableStalls(req: AuthRequest, res: Response): Promise<void> {
   const { exhibition_id } = req.query;

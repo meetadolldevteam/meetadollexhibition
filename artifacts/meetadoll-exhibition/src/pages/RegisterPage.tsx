@@ -17,6 +17,7 @@ export default function RegisterPage() {
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
+  const [agreed, setAgreed] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -25,6 +26,10 @@ export default function RegisterPage() {
     setError("");
     if (password !== confirm) {
       setError("Passwords do not match");
+      return;
+    }
+    if (!agreed) {
+      setError("You must agree to the Terms and Conditions and Privacy Policy to continue.");
       return;
     }
     setLoading(true);
@@ -117,9 +122,40 @@ export default function RegisterPage() {
             />
           </div>
 
+          <label className="flex items-start gap-3 cursor-pointer group">
+            <input
+              type="checkbox"
+              checked={agreed}
+              onChange={(e) => setAgreed(e.target.checked)}
+              className="mt-0.5 h-4 w-4 rounded border-border accent-primary cursor-pointer"
+            />
+            <span className="text-sm text-muted-foreground leading-snug">
+              I agree to the{" "}
+              <Link
+                to="/terms"
+                target="_blank"
+                className="text-primary hover:underline font-medium"
+              >
+                Terms &amp; Conditions
+              </Link>{" "}
+              and{" "}
+              <Link
+                to="/privacy"
+                target="_blank"
+                className="text-primary hover:underline font-medium"
+              >
+                Privacy Policy
+              </Link>
+            </span>
+          </label>
+
           {error && <p className="text-sm text-destructive text-center">{error}</p>}
 
-          <Button type="submit" className="rounded-full mt-1" disabled={loading}>
+          <Button
+            type="submit"
+            className="rounded-full mt-1"
+            disabled={loading || !agreed}
+          >
             {loading ? "Creating account…" : "Create account"}
           </Button>
         </form>

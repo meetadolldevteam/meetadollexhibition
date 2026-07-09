@@ -1,31 +1,45 @@
 import { Button } from "@/components/ui/button";
 import { Check, Store } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import ScrollReveal from "./ScrollReveal";
 import StallPickerModal from "./StallPickerModal";
 import { useAuth } from "@/context/AuthContext";
 
-const stall = {
-  name: "Vendor Stall",
-  subtitle: "Standard exhibition stall for the full 2 days",
-  price: "₦210,000",
-  features: [
-    "Prime placement on the exhibition floor",
-    "Access for the full 2-day event",
-    "Vendor listing across our channels",
-    "On-site support from the Meetadoll team",
-  ],
-  slots_total: 150,
-  slots_taken: 42,
-};
+interface StallStats { total: number; available: number; held: number; reserved: number; }
+interface Exhibition { id: string; }
+
+const FEATURES = [
+  "Prime placement on the exhibition floor",
+  "Access for the full 2-day event",
+  "Vendor listing across our channels",
+  "On-site support from the Meetadoll team",
+];
 
 const TicketsSection = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [pickerOpen, setPickerOpen] = useState(false);
-  const left = Math.max(0, stall.slots_total - stall.slots_taken);
-  const pct = (stall.slots_taken / stall.slots_total) * 100;
+  const [stats, setStats] = useState<StallStats | null>(null);
+
+  useEffect(() => {
+    const API = import.meta.env.VITE_API_URL ?? "/api";
+    fetch(`${API}/exhibitions`)
+      .then((r) => r.json())
+      .then((d: { exhibitions: Exhibition[] }) => {
+        const first = d.exhibitions?.[0];
+        if (!first) return;
+        return fetch(`${API}/stalls/stats?exhibition_id=${first.id}`);
+      })
+      .then((r) => r?.json())
+      .then((s: StallStats | undefined) => { if (s) setStats(s); })
+      .catch(() => {});
+  }, []);
+
+  const total = stats?.total ?? 150;
+  const taken = stats ? stats.held + stats.reserved : 0;
+  const available = stats?.available ?? total;
+  const pct = total > 0 ? ((taken / total) * 100) : 0;
 
   const handleReserve = () => {
     if (user) {
@@ -51,15 +65,15 @@ const TicketsSection = () => {
             <div className="bg-card text-foreground border border-border rounded-xl p-5 md:p-6 flex flex-col h-full shadow-sm">
               <div className="flex items-center gap-2 mb-1">
                 <Store size={14} className="text-primary" />
-                <p className="text-xs text-muted-foreground uppercase tracking-widest">{stall.name}</p>
+                <p className="text-xs text-muted-foreground uppercase tracking-widest">Vendor Stall</p>
               </div>
-              <p className="text-foreground font-medium text-sm mb-3">{stall.subtitle}</p>
-              <p className="text-2xl md:text-3xl font-display font-bold mb-4">{stall.price}</p>
+              <p className="text-foreground font-medium text-sm mb-3">Standard exhibition stall for the full 2 days</p>
+              <p className="text-2xl md:text-3xl font-display font-bold mb-4">₦210,000</p>
 
               <div className="mb-4">
                 <div className="flex justify-between text-xs text-muted-foreground mb-1.5">
-                  <span className="text-primary font-semibold">{left} slots left</span>
-                  <span>{stall.slots_taken} / {stall.slots_total}</span>
+                  <span className="text-primary font-semibold">{available} slots left</span>
+                  <span>{taken} / {total}</span>
                 </div>
                 <div className="h-1.5 w-full bg-secondary rounded-full overflow-hidden">
                   <div className="h-full bg-primary transition-all" style={{ width: `${pct}%` }} />
@@ -71,7 +85,7 @@ const TicketsSection = () => {
               </Button>
 
               <ul className="space-y-2 mt-auto">
-                {stall.features.map((f) => (
+                {FEATURES.map((f) => (
                   <li key={f} className="flex items-start gap-2 text-xs text-muted-foreground">
                     <Check className="w-3.5 h-3.5 text-primary shrink-0 mt-0.5" />
                     <span>{f}</span>
