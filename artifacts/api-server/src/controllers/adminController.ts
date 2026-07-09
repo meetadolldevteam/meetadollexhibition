@@ -3,6 +3,79 @@ import { supabase } from "../config/supabase";
 import { logger } from "../lib/logger";
 import { sendAnnouncementEmail } from "../services/email";
 
+export async function getPaymentsSummary(_req: Request, res: Response): Promise<void> {
+  try {
+    const { data: payments, error } = await supabase
+      .from("payments")
+      .select(`
+        id, amount, status,
+        reservations (
+          id,
+          stalls ( exhibition_id, exhibitions ( id, name, venue ) )
+        )
+      `);
+
+    if (error) {
+      logger.error({ err: error }, "Failed to fetch payments for summary");
+      res.status(500).json({ error: "Failed to fetch payment summary" });
+      return;
+    }
+
+    type ExhibitionBucket = {
+      id: string; name: string; venue: string;
+      successful: { count: number; total: number };
+      pending: { count: number; total: number };
+      failed: { count: number; total: number };
+    };
+
+    const byExhibition = new Map<string, ExhibitionBucket>();
+    let overallRevenue = 0;
+    let overallPending = 0;
+    let overallFailed = 0;
+
+    for (const p of (payments ?? [])) {
+      const reservation = (p as any).reservations;
+      const stall = reservation?.stalls;
+      const exh = stall?.exhibitions;
+      if (!exh) continue;
+
+      if (!byExhibition.has(exh.id)) {
+        byExhibition.set(exh.id, {
+          id: exh.id, name: exh.name, venue: exh.venue,
+          successful: { count: 0, total: 0 },
+          pending: { count: 0, total: 0 },
+          failed: { count: 0, total: 0 },
+        });
+      }
+
+      const bucket = byExhibition.get(exh.id)!;
+      const amount = typeof p.amount === "number" ? p.amount : 0;
+
+      if (p.status === "successful") {
+        bucket.successful.count++;
+        bucket.successful.total += amount;
+        overallRevenue += amount;
+      } else if (p.status === "pending") {
+        bucket.pending.count++;
+        bucket.pending.total += amount;
+        overallPending += amount;
+      } else {
+        bucket.failed.count++;
+        bucket.failed.total += amount;
+        overallFailed += amount;
+      }
+    }
+
+    res.json({
+      exhibitions: Array.from(byExhibition.values()),
+      overall: { revenue: overallRevenue, pending: overallPending, failed: overallFailed },
+    });
+  } catch (err) {
+    logger.error({ err }, "Payments summary error");
+    res.status(500).json({ error: "Internal server error" });
+  }
+}
+
 export async function getAllReservations(_req: Request, res: Response): Promise<void> {
   try {
     const { data, error } = await supabase

@@ -136,14 +136,14 @@ export default function StallPickerModal({ open, onOpenChange }: Props) {
           </div>
         )}
 
-        {step === "held" && held ? (
+        {(step === "held" || step === "paying") && held ? (
           <div className="flex flex-col gap-4 py-2">
             <div className="rounded-xl border border-border bg-secondary/30 p-4 text-sm">
               <p className="font-semibold mb-1">Reservation code: <span className="font-mono">{held.code}</span></p>
               <p className="text-muted-foreground">Your stall is temporarily held. Pay now to lock it in.</p>
             </div>
-            <Button className="rounded-full" onClick={handlePay} disabled={step === "paying" as unknown as boolean}>
-              {step === ("paying" as Step) ? <><Loader2 className="w-4 h-4 animate-spin mr-2" /> Redirecting…</> : "Pay now →"}
+            <Button className="rounded-full" onClick={handlePay} disabled={step === "paying"}>
+              {step === "paying" ? <><Loader2 className="w-4 h-4 animate-spin mr-2" /> Redirecting…</> : "Pay now →"}
             </Button>
             <Button variant="ghost" className="rounded-full" onClick={() => navigate("/my-reservations")}>
               Pay later from My Reservations
