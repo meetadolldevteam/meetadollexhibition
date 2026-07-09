@@ -2,15 +2,19 @@ import { useEffect, useState } from "react";
 import { MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import ScrollReveal from "./ScrollReveal";
-import RegisterModal from "./RegisterModal";
+import { useAuth } from "@/context/AuthContext";
+import { useNavigate } from "react-router-dom";
+import StallPickerModal from "./StallPickerModal";
 
 const EVENT_DATE = new Date("2026-12-05T10:00:00+01:00");
 const VENUE = "Umar Musa Yar'adua Hall, Kaduna State";
 const logo = { url: "/assets/meetadoll-logo.jpg" };
 
 const HeroSection = () => {
+  const { user } = useAuth();
+  const navigate = useNavigate();
   const [timeLeft, setTimeLeft] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
-  const [registerOpen, setRegisterOpen] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   useEffect(() => {
     const calc = () => {
@@ -26,6 +30,14 @@ const HeroSection = () => {
     const id = setInterval(() => setTimeLeft(calc()), 1000);
     return () => clearInterval(id);
   }, []);
+
+  const handleCTA = () => {
+    if (user) {
+      setPickerOpen(true);
+    } else {
+      navigate("/register");
+    }
+  };
 
   return (
     <section className="relative min-h-screen flex flex-col items-center justify-center overflow-hidden pt-20">
@@ -64,15 +76,15 @@ const HeroSection = () => {
         </ScrollReveal>
 
         <ScrollReveal delay={0.3}>
-          <Button size="lg" className="rounded-full px-8" onClick={() => setRegisterOpen(true)}>
-            Register now
+          <Button size="lg" className="rounded-full px-8" onClick={handleCTA}>
+            {user ? "Reserve your stall" : "Register now"}
           </Button>
         </ScrollReveal>
 
         <MarqueeRow text="EXHIBITION" direction="right" />
       </div>
 
-      <RegisterModal open={registerOpen} onOpenChange={setRegisterOpen} />
+      <StallPickerModal open={pickerOpen} onOpenChange={setPickerOpen} />
     </section>
   );
 };

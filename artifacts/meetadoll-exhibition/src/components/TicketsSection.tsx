@@ -1,14 +1,10 @@
 import { Button } from "@/components/ui/button";
 import { Check, Store } from "lucide-react";
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import ScrollReveal from "./ScrollReveal";
 import StallPickerModal from "./StallPickerModal";
-
-
-
-const WHATSAPP_URL =
-  "https://wa.me/2349063604449?text=" +
-  encodeURIComponent("Hi Meetadoll, I'd like to reserve a vendor stall (₦210,000).");
+import { useAuth } from "@/context/AuthContext";
 
 const stall = {
   name: "Vendor Stall",
@@ -25,9 +21,19 @@ const stall = {
 };
 
 const TicketsSection = () => {
+  const { user } = useAuth();
+  const navigate = useNavigate();
   const [pickerOpen, setPickerOpen] = useState(false);
   const left = Math.max(0, stall.slots_total - stall.slots_taken);
   const pct = (stall.slots_taken / stall.slots_total) * 100;
+
+  const handleReserve = () => {
+    if (user) {
+      setPickerOpen(true);
+    } else {
+      navigate("/register");
+    }
+  };
 
   return (
     <section id="tickets" className="py-16 md:py-20 px-5 md:px-6 bg-foreground text-background">
@@ -60,12 +66,8 @@ const TicketsSection = () => {
                 </div>
               </div>
 
-              <Button
-                size="sm"
-                className="rounded-full w-full mb-4"
-                onClick={() => setPickerOpen(true)}
-              >
-                Reserve stall
+              <Button size="sm" className="rounded-full w-full mb-4" onClick={handleReserve}>
+                {user ? "Pick & reserve stall" : "Register to reserve"}
               </Button>
 
               <ul className="space-y-2 mt-auto">
@@ -84,6 +86,5 @@ const TicketsSection = () => {
     </section>
   );
 };
-
 
 export default TicketsSection;
