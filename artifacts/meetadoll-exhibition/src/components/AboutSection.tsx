@@ -1,7 +1,7 @@
 import ScrollReveal from "./ScrollReveal";
 
 const VENUE = "Umar Musa Yar'adua Hall, Kaduna";
-const DATES_DISPLAY = "5 & 6 December · 10am – 10pm";
+const DATES_DISPLAY = "5 & 6 December · 10am to 10pm";
 
 const AboutSection = () => (
   <section id="about" className="py-24 px-6 bg-[hsl(35,25%,93%)]">
@@ -14,7 +14,7 @@ const AboutSection = () => (
             Business and empowerment through entertainment
           </h2>
           <p className="text-muted-foreground text-lg leading-relaxed mb-6">
-            Meetadoll Exhibition is a premium lifestyle, commerce, and empowerment platform designed to deliver real economic outcomes by connecting curated vendors with buying customers in a structured, high-energy marketplace. It blends business, culture, entertainment, and community engagement to drive sales, visibility, and meaningful interaction — not just crowd size.
+            Meetadoll Exhibition is a premium lifestyle, commerce, and empowerment platform designed to deliver real economic outcomes by connecting curated vendors with buying customers in a structured, high-energy marketplace. It blends business, culture, entertainment, and community engagement to drive sales, visibility, and meaningful interaction, not just crowd size.
           </p>
           <p className="text-muted-foreground text-lg leading-relaxed mb-8">
             Youth-driven and powered by entertainment and digital storytelling, it remains a trusted, professional platform for SMEs, women entrepreneurs, and institutional partners to engage audiences in a credible, results-focused environment.

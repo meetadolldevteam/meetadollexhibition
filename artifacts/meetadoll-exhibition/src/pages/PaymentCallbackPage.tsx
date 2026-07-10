@@ -68,7 +68,7 @@ export default function PaymentCallbackPage() {
             <XCircle className="w-14 h-14 text-destructive mx-auto mb-4" />
             <h1 className="font-display text-3xl font-bold mb-2">Payment failed</h1>
             <p className="text-muted-foreground text-sm mb-6">
-              Something went wrong with your payment. Your stall hold is still active for 15 minutes — you can try again from your reservations.
+              Something went wrong with your payment. Your stall hold is still active for 15 minutes. You can try again from your reservations.
             </p>
             <div className="flex flex-col gap-3">
               <Button asChild className="rounded-full">

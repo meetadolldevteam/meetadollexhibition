@@ -42,7 +42,7 @@ export default function PrivacyPage() {
                 <li>Full name</li>
                 <li>Email address</li>
                 <li>Phone number</li>
-                <li>Password (stored in encrypted form — never in plain text)</li>
+                <li>Password (stored in encrypted form, never in plain text)</li>
               </ul>
             </div>
             <div>
@@ -56,7 +56,7 @@ export default function PrivacyPage() {
               <p className="font-semibold text-foreground mb-1">Payment Information</p>
               <ul className="list-disc list-inside space-y-0.5">
                 <li>Transaction references and payment status</li>
-                <li>We do NOT store card numbers or bank details — these are handled entirely by Paystack</li>
+                <li>We do NOT store card numbers or bank details. These are handled entirely by Paystack.</li>
               </ul>
             </div>
             <div>
@@ -88,9 +88,9 @@ export default function PrivacyPage() {
           <p>We do not sell your personal information. We only share your data with:</p>
           <p><strong className="text-foreground">Service Providers:</strong></p>
           <ul className="list-disc list-inside space-y-1">
-            <li>Paystack — for payment processing</li>
-            <li>Resend — for sending transactional emails</li>
-            <li>Supabase — for secure database storage</li>
+            <li>Paystack, for payment processing</li>
+            <li>Resend, for sending transactional emails</li>
+            <li>Supabase, for secure database storage</li>
           </ul>
           <p>All third-party providers are required to handle your data securely and only for the purpose of providing their service to us.</p>
           <p><strong className="text-foreground">Legal Requirements:</strong> We may disclose your information if required to do so by Nigerian law, court order, or government authority.</p>

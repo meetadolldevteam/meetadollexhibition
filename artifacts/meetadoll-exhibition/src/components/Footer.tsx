@@ -46,7 +46,7 @@ const Footer = () => (
           <div className="md:col-span-2">
             <p className="font-sans-grotesk font-bold text-lg mb-3">MEETADOLL EXHIBITION</p>
             <p className="text-sm text-background/60 max-w-sm leading-relaxed">
-              A movement of kindness, impact, and social responsibility — empowering people through commerce and entertainment.
+              A movement of kindness, impact, and social responsibility, empowering people through commerce and entertainment.
             </p>
           </div>
 

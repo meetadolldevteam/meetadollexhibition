@@ -8,7 +8,7 @@ const AgendaSection = () => (
         <p className="text-xs uppercase tracking-[0.25em] text-primary font-medium mb-3">2 days · non-stop</p>
         <h2 className="text-3xl sm:text-4xl md:text-5xl font-display font-bold mb-3">Agenda</h2>
         <p className="text-muted-foreground max-w-xl mb-10 md:mb-12">
-          Fashion runways, live music, cultural showcases and a full marketplace — a two-day celebration of business, empowerment and entertainment.
+          Fashion runways, live music, cultural showcases and a full marketplace: a two-day celebration of business, empowerment and entertainment.
         </p>
       </ScrollReveal>
 
@@ -21,7 +21,7 @@ const AgendaSection = () => (
             The full schedule is to be announced
           </h3>
           <p className="text-muted-foreground max-w-md mx-auto">
-            We're finalising the two-day line-up of runways, performances and marketplace moments. Check back soon — or register your interest to get the drop first.
+            We're finalising the two-day line-up of runways, performances and marketplace moments. Check back soon, or register your interest to get the drop first.
           </p>
         </div>
       </ScrollReveal>

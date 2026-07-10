@@ -62,9 +62,9 @@ export default function TermsPage() {
 
         <Section title="6. Refund and Cancellation Policy">
           <p>6.1 <strong className="text-foreground">Cancellation by Vendor:</strong> Reservations cancelled are non-refundable.</p>
-          <p>6.2 <strong className="text-foreground">Cancellation by Meetadoll:</strong> If Meetadoll cancels an exhibition, vendors will receive a full refund of the amount paid within 7–14 business days.</p>
+          <p>6.2 <strong className="text-foreground">Cancellation by Meetadoll:</strong> If Meetadoll cancels an exhibition, vendors will receive a full refund of the amount paid within 7 to 14 business days.</p>
           <p>6.3 <strong className="text-foreground">Postponement:</strong> If an exhibition is postponed, your reservation will be automatically transferred to the new date. If you cannot attend the new date, you may request a full refund within 7 days of the postponement announcement.</p>
-          <p>6.4 Refunds are processed through the original payment method and may take 5–10 business days to reflect.</p>
+          <p>6.4 Refunds are processed through the original payment method and may take 5 to 10 business days to reflect.</p>
         </Section>
 
         <Section title="7. Vendor Conduct">

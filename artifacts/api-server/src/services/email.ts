@@ -58,7 +58,7 @@ function buildConfirmationHtml(data: ConfirmationEmailData): string {
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Reservation Confirmed — ${exhibitionName}</title>
+  <title>Reservation Confirmed: ${exhibitionName}</title>
 </head>
 <body style="margin:0;padding:0;background-color:#f4f4f5;font-family:Arial,Helvetica,sans-serif;">
 
@@ -194,7 +194,7 @@ function buildConfirmationHtml(data: ConfirmationEmailData): string {
                       <li style="font-size:13px;margin-bottom:6px;line-height:1.5;">Vendor set-up begins at <strong>8:00 AM</strong> on the first day. Please arrive early to arrange your stall before the exhibition opens at <strong>10:00 AM</strong>.</li>
                       <li style="font-size:13px;margin-bottom:6px;line-height:1.5;">Bring a <strong>printed or digital copy</strong> of this confirmation email.</li>
                       <li style="font-size:13px;margin-bottom:6px;line-height:1.5;">Present your <strong>Reservation ID</strong> and a valid government-issued ID at the vendor check-in desk.</li>
-                      <li style="font-size:13px;line-height:1.5;">Look for the <strong>Meetadoll staff</strong> in branded vests at the entrance — they will direct you to your assigned stall.</li>
+                      <li style="font-size:13px;line-height:1.5;">Look for the <strong>Meetadoll staff</strong> in branded vests at the entrance. They will direct you to your assigned stall.</li>
                     </ul>
                   </td>
                 </tr>
@@ -254,7 +254,7 @@ export async function sendConfirmationEmail(data: ConfirmationEmailData): Promis
     await resend.emails.send({
       from: FROM_EMAIL,
       to: data.to,
-      subject: `✅ Stall Confirmed — ${data.exhibitionName} (Stall #${data.stallNumber})`,
+      subject: `✅ Stall Confirmed: ${data.exhibitionName} (Stall #${data.stallNumber})`,
       html: buildConfirmationHtml(data),
     });
     logger.info({ reservationId: data.reservationId, to: data.to }, "Confirmation email sent");
@@ -280,7 +280,7 @@ export async function sendAnnouncementEmail(to: string, vendorName: string, subj
         <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:32px 24px;">
           <p style="color:#374151;">Dear ${vendorName},</p>
           ${message.replace(/\n/g, "<br>")}
-          <p style="color:#374151;">— The Meetadoll Team</p>
+          <p style="color:#374151;">The Meetadoll Team</p>
         </div>
       `,
     });

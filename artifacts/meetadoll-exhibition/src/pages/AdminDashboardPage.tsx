@@ -160,11 +160,11 @@ export default function AdminDashboardPage() {
                 return (
                   <tr key={r.id} className="hover:bg-secondary/20 transition-colors">
                     <td className="px-4 py-3">
-                      <p className="font-medium">{r.users?.name ?? "—"}</p>
+                      <p className="font-medium">{r.users?.name ?? "N/A"}</p>
                       <p className="text-xs text-muted-foreground">{r.users?.email}</p>
                     </td>
-                    <td className="px-4 py-3 text-muted-foreground">{r.stalls?.exhibitions?.name ?? "—"}</td>
-                    <td className="px-4 py-3 font-semibold">#{r.stalls?.stall_number ?? "—"}</td>
+                    <td className="px-4 py-3 text-muted-foreground">{r.stalls?.exhibitions?.name ?? "N/A"}</td>
+                    <td className="px-4 py-3 font-semibold">#{r.stalls?.stall_number ?? "N/A"}</td>
                     <td className="px-4 py-3 font-mono text-xs">{r.reservation_code}</td>
                     <td className="px-4 py-3">
                       <Badge variant={meta.variant} className="text-xs">
