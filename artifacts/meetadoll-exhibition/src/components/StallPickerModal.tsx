@@ -76,7 +76,7 @@ export default function StallPickerModal({ open, onOpenChange }: Props) {
       );
       setHeld({ reservationId: data.reservation.id, code: data.reservation.reservation_code, stallNumber: selected.stall_number });
       setStep("held");
-      setStalls((prev) => prev.filter((s) => s.id !== selected.id));
+      setStalls((prev) => prev.map((s) => s.id === selected.id ? { ...s, status: "held" } : s));
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Failed to hold stall. Please try again.");
       setStep("picking");
@@ -97,7 +97,7 @@ export default function StallPickerModal({ open, onOpenChange }: Props) {
     }
   };
 
-  const allStallNumbers = new Set(stalls.map((s) => s.stall_number));
+  const stallMap = new Map(stalls.map((s) => [Number(s.stall_number), s]));
 
   if (!user) {
     return (
@@ -177,25 +177,28 @@ export default function StallPickerModal({ open, onOpenChange }: Props) {
                   <Loader2 className="w-6 h-6 animate-spin text-primary" />
                 </div>
               ) : stalls.length === 0 ? (
-                <p className="text-center text-muted-foreground py-12 text-sm">No available stalls for this exhibition.</p>
+                <p className="text-center text-muted-foreground py-12 text-sm">No stalls found for this exhibition.</p>
               ) : (
                 <div className="grid grid-cols-6 sm:grid-cols-10 gap-2">
                   {Array.from({ length: 150 }, (_, i) => i + 1).map((n) => {
-                    const stall = stalls.find((s) => s.stall_number === n);
-                    const available = allStallNumbers.has(n);
+                    const stall = stallMap.get(n);
+                    const available = stall?.status === "available";
+                    const isTaken = stall ? stall.status !== "available" : false;
                     const isSelected = selected?.stall_number === n;
                     return (
                       <button
                         key={n}
                         disabled={!available || step === "holding"}
-                        onClick={() => stall && setSelected(stall)}
+                        onClick={() => available && stall && setSelected(stall)}
                         className={[
                           "aspect-square rounded-md text-xs font-semibold border transition-all flex items-center justify-center",
-                          !available
-                            ? "bg-zinc-500 text-white border-zinc-500 cursor-not-allowed opacity-80"
+                          isTaken
+                            ? "bg-zinc-400 text-white border-zinc-400 cursor-not-allowed opacity-70"
+                            : !stall
+                            ? "bg-zinc-400 text-white border-zinc-400 cursor-not-allowed opacity-70"
                             : isSelected
                             ? "bg-primary text-primary-foreground border-primary scale-105 shadow"
-                            : "bg-background border-border hover:border-primary hover:text-primary",
+                            : "bg-white text-zinc-800 border-zinc-300 hover:border-primary hover:text-primary",
                         ].join(" ")}
                       >
                         {n}

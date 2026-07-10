@@ -36,7 +36,7 @@ export async function getStallStats(req: Request, res: Response): Promise<void> 
   }
 }
 
-export async function getAvailableStalls(req: AuthRequest, res: Response): Promise<void> {
+export async function getStalls(req: Request, res: Response): Promise<void> {
   const { exhibition_id } = req.query;
 
   if (!exhibition_id) {
@@ -47,9 +47,8 @@ export async function getAvailableStalls(req: AuthRequest, res: Response): Promi
   try {
     const { data, error } = await supabase
       .from("stalls")
-      .select("*")
+      .select("id, stall_number, status, price, package")
       .eq("exhibition_id", exhibition_id)
-      .eq("status", "available")
       .order("stall_number", { ascending: true });
 
     if (error) {

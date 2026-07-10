@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { body } from "express-validator";
 import { authenticate } from "../middleware/auth";
-import { getAvailableStalls, getStallStats, holdStall } from "../controllers/stallController";
+import { getStalls, getStallStats, holdStall } from "../controllers/stallController";
 import { validate } from "../middleware/validate";
 import { stallHoldRateLimiter } from "../middleware/rateLimit";
 
@@ -9,7 +9,7 @@ const router = Router();
 
 router.get("/stats", getStallStats);
 
-router.get("/", authenticate, getAvailableStalls);
+router.get("/", getStalls);
 
 router.post(
   "/hold",
