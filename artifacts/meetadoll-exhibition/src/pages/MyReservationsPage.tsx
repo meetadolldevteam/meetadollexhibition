@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
-import { api } from "@/lib/apiClient";
+import { api, ApiError } from "@/lib/apiClient";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, Store, Clock, CheckCircle2, XCircle, AlertCircle } from "lucide-react";
@@ -35,6 +35,7 @@ export default function MyReservationsPage() {
   const navigate = useNavigate();
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [loading, setLoading] = useState(true);
+  const [payingId, setPayingId] = useState<string | null>(null);
   const [payError, setPayError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -49,8 +50,17 @@ export default function MyReservationsPage() {
       .finally(() => setLoading(false));
   }, [user, authLoading, navigate]);
 
-  const handlePay = (_reservationId: string) => {
-    setPayError("Online payment is coming soon. Please contact us via WhatsApp to complete your reservation.");
+  const handlePay = async (reservationId: string) => {
+    setPayingId(reservationId);
+    setPayError(null);
+    try {
+      const data = await api.post<{ payment_link: string }>("/payments/initiate", { reservation_id: reservationId });
+      window.location.href = data.payment_link;
+    } catch (err) {
+      const msg = err instanceof ApiError ? err.message : "Payment initiation failed";
+      setPayError(msg);
+      setPayingId(null);
+    }
   };
 
   if (authLoading || loading) {
@@ -132,9 +142,12 @@ export default function MyReservationsPage() {
                     <Button
                       size="sm"
                       className="rounded-full shrink-0"
+                      disabled={payingId === r.id}
                       onClick={() => handlePay(r.id)}
                     >
-                      Pay now
+                      {payingId === r.id ? (
+                        <><Loader2 className="w-3 h-3 animate-spin mr-1" /> Redirecting…</>
+                      ) : "Pay now"}
                     </Button>
                   )}
                 </div>

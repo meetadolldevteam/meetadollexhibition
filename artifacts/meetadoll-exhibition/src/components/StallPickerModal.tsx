@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { useEffect, useState } from "react";
 import { Check, Loader2 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
-import { api } from "@/lib/apiClient";
+import { api, ApiError } from "@/lib/apiClient";
 import { useNavigate } from "react-router-dom";
 
 interface Props {
@@ -14,7 +14,7 @@ interface Props {
 interface Exhibition { id: string; name: string; }
 interface Stall { id: string; stall_number: number; status: string; price: number; package: string; }
 
-type Step = "picking" | "holding" | "held";
+type Step = "picking" | "holding" | "held" | "paying";
 
 interface HeldInfo { reservationId: string; code: string; stallNumber: number; }
 
@@ -84,7 +84,17 @@ export default function StallPickerModal({ open, onOpenChange }: Props) {
   };
 
   const handlePay = async () => {
-    setError("Online payment is coming soon. Please contact us via WhatsApp to complete your reservation.");
+    if (!held) return;
+    setError(null);
+    setStep("paying");
+    try {
+      const data = await api.post<{ payment_link: string }>("/payments/initiate", { reservation_id: held.reservationId });
+      window.location.href = data.payment_link;
+    } catch (err) {
+      const msg = err instanceof ApiError ? err.message : "Payment could not be initiated.";
+      setError(msg);
+      setStep("held");
+    }
   };
 
   const stallMap = new Map(stalls.map((s) => [Number(s.stall_number), s]));
@@ -126,20 +136,17 @@ export default function StallPickerModal({ open, onOpenChange }: Props) {
           </div>
         )}
 
-        {step === "held" && held ? (
+        {(step === "held" || step === "paying") && held ? (
           <div className="flex flex-col gap-4 py-2">
             <div className="rounded-xl border border-border bg-secondary/30 p-4 text-sm">
               <p className="font-semibold mb-1">Reservation code: <span className="font-mono">{held.code}</span></p>
-              <p className="text-muted-foreground">Your stall is temporarily held for 15 minutes.</p>
+              <p className="text-muted-foreground">Your stall is temporarily held. Pay now to lock it in.</p>
             </div>
-            <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-              Online payment is coming soon. Contact us on WhatsApp to complete your payment and confirm your stall.
-            </div>
-            <Button className="rounded-full" onClick={() => window.open("https://wa.me/2349063604449", "_blank")}>
-              Contact us on WhatsApp
+            <Button className="rounded-full" onClick={handlePay} disabled={step === "paying"}>
+              {step === "paying" ? <><Loader2 className="w-4 h-4 animate-spin mr-2" /> Redirecting…</> : "Pay now →"}
             </Button>
             <Button variant="ghost" className="rounded-full" onClick={() => navigate("/my-reservations")}>
-              View my reservations
+              Pay later from My Reservations
             </Button>
           </div>
         ) : (
