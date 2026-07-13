@@ -116,7 +116,7 @@ export async function verifyOtp(req: Request, res: Response): Promise<void> {
     }
 
     // Issue tokens
-    const accessToken = signAccessToken({ id: user.id, email: user.email, role: user.role });
+    const accessToken = signAccessToken({ id: user.id, email: user.email, name: (user as any).name ?? "", role: user.role });
     const refreshToken = signRefreshToken(user.id);
     res.cookie(REFRESH_COOKIE_NAME, refreshToken, refreshCookieOptions);
 

@@ -119,7 +119,7 @@ export async function refresh(req: Request, res: Response): Promise<void> {
       return;
     }
 
-    const accessToken = signAccessToken({ id: user.id, email: user.email, role: user.role });
+    const accessToken = signAccessToken({ id: user.id, email: user.email, name: user.name ?? "", role: user.role });
     const newRefreshToken = signRefreshToken(user.id);
 
     res.cookie(REFRESH_COOKIE_NAME, newRefreshToken, refreshCookieOptions);

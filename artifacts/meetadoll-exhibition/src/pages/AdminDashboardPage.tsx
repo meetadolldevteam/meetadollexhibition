@@ -1,208 +1,183 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
-import { api } from "@/lib/apiClient";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Loader2, TrendingUp, Clock, CheckCircle2, XCircle } from "lucide-react";
+import {
+  LayoutDashboard, ClipboardList, Grid3X3, Users, CreditCard,
+  Megaphone, ScrollText, StickyNote, UserPlus, LogOut, Menu, X,
+} from "lucide-react";
+import StatsPanel from "@/components/admin/StatsPanel";
+import ReservationsPanel from "@/components/admin/ReservationsPanel";
+import StallGridPanel from "@/components/admin/StallGridPanel";
+import VendorsPanel from "@/components/admin/VendorsPanel";
+import PaymentsPanel from "@/components/admin/PaymentsPanel";
+import AnnouncementsPanel from "@/components/admin/AnnouncementsPanel";
+import ActivityLogPanel from "@/components/admin/ActivityLogPanel";
+import ShiftNotesPanel from "@/components/admin/ShiftNotesPanel";
+import CreateAdminPanel from "@/components/admin/CreateAdminPanel";
 
-const logo = { url: "/assets/meetadoll-logo.jpg" };
+type Panel =
+  | "stats" | "reservations" | "stalls" | "vendors"
+  | "payments" | "announcements" | "activity" | "shifts" | "team";
 
-interface Exhibition { id: string; name: string; venue: string; }
-interface Stall { stall_number: number; exhibition_id: string; exhibitions: Exhibition; }
-interface ReservationUser { name: string; email: string; }
-interface AdminReservation {
-  id: string;
-  status: string;
-  reservation_code: string;
-  created_at: string;
-  users: ReservationUser;
-  stalls: Stall;
-}
-interface PaymentSummary {
-  exhibitions: {
-    id: string;
-    name: string;
-    venue: string;
-    successful: { count: number; total: number };
-    pending: { count: number; total: number };
-    failed: { count: number; total: number };
-  }[];
-  overall: { revenue: number; pending: number; failed: number };
-}
-
-const PAYMENT_STATUS_META: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
-  confirmed: { label: "Confirmed", variant: "default" },
-  held: { label: "Held", variant: "secondary" },
-  cancelled: { label: "Cancelled", variant: "destructive" },
-  expired: { label: "Expired", variant: "outline" },
+const ROLE_BADGE: Record<string, { label: string; cls: string }> = {
+  super_admin: { label: "Super Admin", cls: "bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300" },
+  admin:       { label: "Admin",       cls: "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300" },
+  staff:       { label: "Staff",       cls: "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300" },
 };
 
-function fmt(n: number) {
-  return `₦${n.toLocaleString("en-NG", { minimumFractionDigits: 0 })}`;
-}
+const ALLOWED_ROLES = ["super_admin", "admin", "staff"];
 
 export default function AdminDashboardPage() {
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, logout } = useAuth();
   const navigate = useNavigate();
-  const [summary, setSummary] = useState<PaymentSummary | null>(null);
-  const [reservations, setReservations] = useState<AdminReservation[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [activePanel, setActivePanel] = useState<Panel>("stats");
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  useEffect(() => {
-    if (authLoading) return;
-    if (!user) { navigate("/login?next=/admin", { replace: true }); return; }
-    if (user.role !== "admin") { navigate("/", { replace: true }); return; }
-
-    Promise.all([
-      api.get<PaymentSummary>("/admin/payments/summary"),
-      api.get<{ reservations: AdminReservation[] }>("/admin/reservations"),
-    ])
-      .then(([s, r]) => {
-        setSummary(s);
-        setReservations(r.reservations);
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, [user, authLoading, navigate]);
-
-  if (authLoading || loading) {
+  if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
 
+  if (!user || !ALLOWED_ROLES.includes(user.role)) {
+    navigate(user ? "/" : "/login?next=/admin", { replace: true });
+    return null;
+  }
+
+  const role = user.role;
+  const isManager = role === "admin" || role === "super_admin";
+  const isSuperAdmin = role === "super_admin";
+
+  interface NavItem { id: Panel; label: string; icon: React.ReactNode; show: boolean }
+  const navItems: NavItem[] = [
+    { id: "stats",         label: "Dashboard",     icon: <LayoutDashboard className="w-4 h-4" />, show: true },
+    { id: "reservations",  label: "Reservations",  icon: <ClipboardList className="w-4 h-4" />,  show: true },
+    { id: "stalls",        label: "Stall Grid",    icon: <Grid3X3 className="w-4 h-4" />,        show: isManager },
+    { id: "vendors",       label: "Vendors",       icon: <Users className="w-4 h-4" />,          show: true },
+    { id: "payments",      label: "Payments",      icon: <CreditCard className="w-4 h-4" />,     show: isManager },
+    { id: "announcements", label: "Announcements", icon: <Megaphone className="w-4 h-4" />,      show: isManager },
+    { id: "activity",      label: "Activity Log",  icon: <ScrollText className="w-4 h-4" />,     show: isManager },
+    { id: "shifts",        label: "Shift Notes",   icon: <StickyNote className="w-4 h-4" />,     show: true },
+    { id: "team",          label: "Team",          icon: <UserPlus className="w-4 h-4" />,       show: isSuperAdmin },
+  ];
+
+  const PANEL_TITLES: Record<Panel, string> = {
+    stats: "Dashboard", reservations: "Reservations", stalls: "Stall Grid",
+    vendors: "Vendors", payments: "Payments", announcements: "Announcements",
+    activity: "Activity Log", shifts: "Shift Notes", team: "Team Management",
+  };
+
+  const roleBadge = ROLE_BADGE[role] ?? { label: role, cls: "bg-zinc-100 text-zinc-700" };
+
+  function nav(panel: Panel) {
+    setActivePanel(panel);
+    setSidebarOpen(false);
+  }
+
+  async function handleLogout() {
+    await logout();
+    navigate("/");
+  }
+
+  const logo = "/assets/meetadoll-logo.jpg";
+
   return (
-    <div className="min-h-screen bg-background">
-      <header className="border-b border-border px-5 py-4 flex items-center justify-between">
-        <Link to="/">
-          <img src={logo.url} alt="Meetadoll" className="h-10 w-auto" />
-        </Link>
-        <div className="flex items-center gap-3">
-          <span className="text-sm text-muted-foreground hidden sm:inline">{user?.name} · Admin</span>
-          <Button asChild variant="ghost" size="sm" className="rounded-full">
-            <Link to="/">Home</Link>
-          </Button>
+    <div className="min-h-screen flex bg-background">
+      {/* Mobile overlay */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 z-30 bg-black/40 lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
+      {/* Sidebar */}
+      <aside
+        className={`fixed lg:sticky top-0 left-0 h-screen w-64 z-40 flex flex-col
+          bg-zinc-950 text-zinc-100 transition-transform duration-200
+          ${sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}
+      >
+        {/* Logo */}
+        <div className="px-5 pt-6 pb-4 border-b border-zinc-800 flex items-center justify-between">
+          <Link to="/" className="flex items-center gap-2">
+            <img src={logo} alt="Meetadoll" className="h-8 w-auto rounded" />
+            <span className="font-display font-bold text-sm text-zinc-100">Admin</span>
+          </Link>
+          <button onClick={() => setSidebarOpen(false)} className="lg:hidden text-zinc-400 hover:text-zinc-100">
+            <X className="w-4 h-4" />
+          </button>
         </div>
-      </header>
 
-      <main className="max-w-5xl mx-auto px-5 py-10">
-        <h1 className="font-display text-3xl font-bold mb-8">Payment Reconciliation</h1>
+        {/* Nav */}
+        <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-0.5">
+          {navItems.filter((n) => n.show).map((item) => (
+            <button
+              key={item.id}
+              onClick={() => nav(item.id)}
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors text-left
+                ${activePanel === item.id
+                  ? "bg-white/10 text-white font-medium"
+                  : "text-zinc-400 hover:bg-white/5 hover:text-zinc-200"
+                }`}
+            >
+              {item.icon}
+              {item.label}
+            </button>
+          ))}
+        </nav>
 
-        {summary && (
-          <>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-10">
-              <StatCard
-                icon={<TrendingUp className="w-5 h-5 text-green-600" />}
-                label="Total Revenue"
-                value={fmt(summary.overall.revenue)}
-                sub="from successful payments"
-                bg="bg-green-50 dark:bg-green-950/30"
-              />
-              <StatCard
-                icon={<Clock className="w-5 h-5 text-amber-600" />}
-                label="Pending"
-                value={fmt(summary.overall.pending)}
-                sub="awaiting payment"
-                bg="bg-amber-50 dark:bg-amber-950/30"
-              />
-              <StatCard
-                icon={<XCircle className="w-5 h-5 text-destructive" />}
-                label="Failed / Abandoned"
-                value={fmt(summary.overall.failed)}
-                sub="not completed"
-                bg="bg-red-50 dark:bg-red-950/30"
-              />
-            </div>
-
-            <h2 className="font-display text-xl font-bold mb-4">Per Exhibition</h2>
-            <div className="flex flex-col gap-4 mb-12">
-              {summary.exhibitions.map((exh) => (
-                <div key={exh.id} className="border border-border rounded-xl p-5 bg-card">
-                  <div className="flex items-start justify-between gap-4 mb-4">
-                    <div>
-                      <p className="font-bold text-base">{exh.name}</p>
-                      <p className="text-xs text-muted-foreground">{exh.venue}</p>
-                    </div>
-                    <p className="font-display font-bold text-lg text-green-600 shrink-0">{fmt(exh.successful.total)}</p>
-                  </div>
-                  <div className="grid grid-cols-3 gap-3 text-center">
-                    <MiniStat label="Successful" count={exh.successful.count} amount={fmt(exh.successful.total)} color="text-green-600" />
-                    <MiniStat label="Pending" count={exh.pending.count} amount={fmt(exh.pending.total)} color="text-amber-600" />
-                    <MiniStat label="Failed" count={exh.failed.count} amount={fmt(exh.failed.total)} color="text-destructive" />
-                  </div>
-                </div>
-              ))}
-              {summary.exhibitions.length === 0 && (
-                <p className="text-muted-foreground text-sm">No payment data yet.</p>
-              )}
-            </div>
-          </>
-        )}
-
-        <h2 className="font-display text-xl font-bold mb-4">All Reservations</h2>
-        <div className="rounded-xl border border-border overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-secondary/50">
-              <tr className="text-left">
-                <th className="px-4 py-3 font-medium text-muted-foreground">Vendor</th>
-                <th className="px-4 py-3 font-medium text-muted-foreground">Exhibition</th>
-                <th className="px-4 py-3 font-medium text-muted-foreground">Stall</th>
-                <th className="px-4 py-3 font-medium text-muted-foreground">Code</th>
-                <th className="px-4 py-3 font-medium text-muted-foreground">Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {reservations.map((r) => {
-                const meta = PAYMENT_STATUS_META[r.status] ?? { label: r.status, variant: "outline" as const };
-                return (
-                  <tr key={r.id} className="hover:bg-secondary/20 transition-colors">
-                    <td className="px-4 py-3">
-                      <p className="font-medium">{r.users?.name ?? "N/A"}</p>
-                      <p className="text-xs text-muted-foreground">{r.users?.email}</p>
-                    </td>
-                    <td className="px-4 py-3 text-muted-foreground">{r.stalls?.exhibitions?.name ?? "N/A"}</td>
-                    <td className="px-4 py-3 font-semibold">#{r.stalls?.stall_number ?? "N/A"}</td>
-                    <td className="px-4 py-3 font-mono text-xs">{r.reservation_code}</td>
-                    <td className="px-4 py-3">
-                      <Badge variant={meta.variant} className="text-xs">
-                        {meta.label}
-                      </Badge>
-                    </td>
-                  </tr>
-                );
-              })}
-              {reservations.length === 0 && (
-                <tr>
-                  <td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">No reservations yet.</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+        {/* Admin info */}
+        <div className="px-4 py-4 border-t border-zinc-800 space-y-3">
+          <div>
+            <p className="text-sm font-medium text-zinc-100 truncate">{user.name}</p>
+            <p className="text-xs text-zinc-500 truncate">{user.email}</p>
+            <span className={`inline-flex mt-1.5 px-2 py-0.5 rounded-full text-xs font-medium ${roleBadge.cls}`}>
+              {roleBadge.label}
+            </span>
+          </div>
+          <button
+            onClick={handleLogout}
+            className="w-full flex items-center gap-2 text-xs text-zinc-500 hover:text-zinc-300 transition-colors py-1"
+          >
+            <LogOut className="w-3.5 h-3.5" /> Sign out
+          </button>
         </div>
-      </main>
-    </div>
-  );
-}
+      </aside>
 
-function StatCard({ icon, label, value, sub, bg }: { icon: React.ReactNode; label: string; value: string; sub: string; bg: string }) {
-  return (
-    <div className={`rounded-xl p-5 border border-border ${bg}`}>
-      <div className="flex items-center gap-2 mb-3">{icon}<span className="text-sm font-medium text-muted-foreground">{label}</span></div>
-      <p className="font-display text-2xl font-bold mb-0.5">{value}</p>
-      <p className="text-xs text-muted-foreground">{sub}</p>
-    </div>
-  );
-}
+      {/* Main content */}
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* Top bar */}
+        <header className="sticky top-0 z-20 bg-background/80 backdrop-blur border-b border-border px-5 py-3 flex items-center gap-3">
+          <button
+            onClick={() => setSidebarOpen(true)}
+            className="lg:hidden text-muted-foreground hover:text-foreground"
+          >
+            <Menu className="w-5 h-5" />
+          </button>
+          <h1 className="font-display text-lg font-bold">{PANEL_TITLES[activePanel]}</h1>
+          <div className="ml-auto hidden sm:block">
+            <span className="text-xs text-muted-foreground">
+              Signed in as <strong>{user.name}</strong>
+            </span>
+          </div>
+        </header>
 
-function MiniStat({ label, count, amount, color }: { label: string; count: number; amount: string; color: string }) {
-  return (
-    <div className="bg-secondary/30 rounded-lg p-2.5">
-      <p className="text-xs text-muted-foreground mb-1">{label}</p>
-      <p className={`font-bold text-sm ${color}`}>{count} <span className="font-normal text-xs">stalls</span></p>
-      <p className="text-xs text-muted-foreground mt-0.5">{amount}</p>
+        {/* Panel content */}
+        <main className="flex-1 p-5 md:p-8 overflow-y-auto">
+          {activePanel === "stats"         && <StatsPanel />}
+          {activePanel === "reservations"  && <ReservationsPanel canEdit={isManager} />}
+          {activePanel === "stalls"        && isManager && <StallGridPanel canEdit={isManager} />}
+          {activePanel === "vendors"       && <VendorsPanel />}
+          {activePanel === "payments"      && isManager && <PaymentsPanel isSuperAdmin={isSuperAdmin} />}
+          {activePanel === "announcements" && isManager && <AnnouncementsPanel />}
+          {activePanel === "activity"      && isManager && <ActivityLogPanel />}
+          {activePanel === "shifts"        && <ShiftNotesPanel />}
+          {activePanel === "team"          && isSuperAdmin && <CreateAdminPanel />}
+        </main>
+      </div>
     </div>
   );
 }

@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 
 export interface AuthRequest extends Request {
-  user?: { id: string; email: string; role: string };
+  user?: { id: string; email: string; name: string; role: string };
 }
 
 export function authenticate(req: AuthRequest, res: Response, next: NextFunction): void {
@@ -20,7 +20,7 @@ export function authenticate(req: AuthRequest, res: Response, next: NextFunction
   }
 
   try {
-    const payload = jwt.verify(token, secret) as { id: string; email: string; role: string };
+    const payload = jwt.verify(token, secret) as { id: string; email: string; name: string; role: string };
     req.user = payload;
     next();
   } catch (err) {
