@@ -169,13 +169,22 @@ export async function paymentWebhook(req: Request, res: Response): Promise<void>
 
     const { data: payment, error: paymentErr } = await supabase
       .from("payments")
-      .select("id, reservation_id")
+      .select("id, reservation_id, status")
       .eq("transaction_reference", reference)
       .single();
 
     if (paymentErr || !payment) {
       logger.error({ reference }, "Payment record not found");
       res.status(200).json({ message: "Payment record not found" });
+      return;
+    }
+
+    // ── Idempotency guard ────────────────────────────────────────────────────
+    // If this reference was already processed (Paystack can send duplicates),
+    // acknowledge silently and stop — no email will be sent twice.
+    if (payment.status === "successful") {
+      logger.info({ reference }, "Duplicate webhook received — already processed, skipping");
+      res.status(200).json({ message: "Already processed" });
       return;
     }
 

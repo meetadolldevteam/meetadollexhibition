@@ -2,7 +2,15 @@ import { Request, Response } from "express";
 import { v4 as uuidv4 } from "uuid";
 import { supabase } from "../config/supabase";
 import { logger } from "../lib/logger";
+import { cache } from "../lib/cache";
+import { withRetry } from "../lib/retry";
 import { AuthRequest } from "../middleware/auth";
+
+const STALLS_TTL_MS = 10_000; // 10 seconds — stalls change during purchases
+
+function stallsCacheKey(exhibitionId: string): string {
+  return `stalls:${exhibitionId}`;
+}
 
 export async function getStallStats(req: Request, res: Response): Promise<void> {
   const { exhibition_id } = req.query;
@@ -13,10 +21,14 @@ export async function getStallStats(req: Request, res: Response): Promise<void> 
   }
 
   try {
-    const { data, error } = await supabase
-      .from("stalls")
-      .select("status")
-      .eq("exhibition_id", exhibition_id);
+    const { data, error } = await withRetry(
+      async () =>
+        supabase
+          .from("stalls")
+          .select("status")
+          .eq("exhibition_id", exhibition_id),
+      { label: "getStallStats" }
+    );
 
     if (error) {
       logger.error({ err: error }, "Failed to fetch stall stats");
@@ -24,32 +36,52 @@ export async function getStallStats(req: Request, res: Response): Promise<void> 
       return;
     }
 
-    const total = data.length;
-    const available = data.filter((s) => s.status === "available").length;
-    const held = data.filter((s) => s.status === "held").length;
-    const reserved = data.filter((s) => s.status === "reserved").length;
+    const rows = data as Array<{ status: string }>;
+    const total = rows.length;
+    const available = rows.filter((s) => s.status === "available").length;
+    const held = rows.filter((s) => s.status === "held").length;
+    const reserved = rows.filter((s) => s.status === "reserved").length;
 
     res.json({ total, available, held, reserved });
   } catch (err) {
     logger.error({ err }, "Get stall stats error");
-    res.status(500).json({ error: "Internal server error" });
+    res.status(503).json({ error: "Service temporarily unavailable. Please try again." });
   }
 }
 
 export async function getStalls(req: Request, res: Response): Promise<void> {
-  const { exhibition_id } = req.query;
+  const { exhibition_id, page: pageParam, limit: limitParam } = req.query;
 
   if (!exhibition_id) {
     res.status(400).json({ error: "exhibition_id is required" });
     return;
   }
 
+  const page = Math.max(1, parseInt((pageParam as string) ?? "1") || 1);
+  const limit = Math.min(200, parseInt((limitParam as string) ?? "200") || 200);
+  const offset = (page - 1) * limit;
+
+  // Short-TTL cache: keeps the grid snappy under load while staying
+  // within 10 seconds of real availability state.
+  const cacheKey = `${stallsCacheKey(exhibition_id as string)}:${page}:${limit}`;
+  const cached = cache.get<{ stalls: unknown[] }>(cacheKey);
+  if (cached) {
+    res.set("X-Cache", "HIT");
+    res.json(cached);
+    return;
+  }
+
   try {
-    const { data, error } = await supabase
-      .from("stalls")
-      .select("id, stall_number, status, price, package")
-      .eq("exhibition_id", exhibition_id)
-      .order("stall_number", { ascending: true });
+    const { data, error } = await withRetry(
+      async () =>
+        supabase
+          .from("stalls")
+          .select("id, stall_number, status, price, package")
+          .eq("exhibition_id", exhibition_id)
+          .order("stall_number", { ascending: true })
+          .range(offset, offset + limit - 1),
+      { label: "getStalls" }
+    );
 
     if (error) {
       logger.error({ err: error }, "Failed to fetch stalls");
@@ -57,10 +89,13 @@ export async function getStalls(req: Request, res: Response): Promise<void> {
       return;
     }
 
-    res.json({ stalls: data });
+    const result = { stalls: data ?? [], page, limit };
+    cache.set(cacheKey, result, STALLS_TTL_MS);
+    res.set("X-Cache", "MISS");
+    res.json(result);
   } catch (err) {
     logger.error({ err }, "Get stalls error");
-    res.status(500).json({ error: "Internal server error" });
+    res.status(503).json({ error: "Service temporarily unavailable. Please try again." });
   }
 }
 
@@ -70,15 +105,14 @@ export async function holdStall(req: AuthRequest, res: Response): Promise<void> 
 
   try {
     // ── Atomic claim: UPDATE only if the stall is still 'available' ────────────
-    // This single statement eliminates the read-then-write race condition.
-    // PostgreSQL executes UPDATE atomically, so only one of N concurrent
-    // requests will match the WHERE clause and update the row.
+    // PostgreSQL executes this UPDATE atomically — only one of N concurrent
+    // requests will match the WHERE clause and get a row back.
     const { data: claimedStall, error: claimError } = await supabase
       .from("stalls")
       .update({ status: "held" })
       .eq("id", stall_id)
       .eq("status", "available")
-      .select("id, stall_number, price")
+      .select("id, stall_number, price, exhibition_id")
       .maybeSingle();
 
     if (claimError) {
@@ -88,14 +122,13 @@ export async function holdStall(req: AuthRequest, res: Response): Promise<void> 
     }
 
     if (!claimedStall) {
-      // Either stall doesn't exist or was taken by another concurrent request
       res.status(409).json({
         error: "Sorry, this stall was just taken. Please select another.",
       });
       return;
     }
 
-    // ── Stall is now exclusively ours — create the reservation ─────────────────
+    // ── Stall is exclusively ours — create the reservation ────────────────────
     const holdExpiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
     const reservationCode = `RES-${uuidv4().slice(0, 8).toUpperCase()}`;
 
@@ -113,8 +146,7 @@ export async function holdStall(req: AuthRequest, res: Response): Promise<void> 
       .single();
 
     if (resError) {
-      // Reservation insert failed — roll back the stall status so it
-      // doesn't get permanently stuck in 'held' with no reservation.
+      // Roll back the stall status so it doesn't get permanently stuck in 'held'
       logger.error({ err: resError }, "Reservation insert failed — reverting stall status");
       await supabase
         .from("stalls")
@@ -123,6 +155,12 @@ export async function holdStall(req: AuthRequest, res: Response): Promise<void> 
 
       res.status(500).json({ error: "Failed to hold stall" });
       return;
+    }
+
+    // Invalidate the stalls cache for this exhibition so the grid reflects
+    // the new 'held' status within the next request instead of waiting for TTL
+    if (claimedStall.exhibition_id) {
+      cache.invalidatePrefix(stallsCacheKey(claimedStall.exhibition_id));
     }
 
     res.status(201).json({ reservation, hold_expires_at: holdExpiresAt });

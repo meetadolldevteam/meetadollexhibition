@@ -1,0 +1,132 @@
+config:
+  # Point this at your production domain or local proxy
+  # Production: https://meetadollexhibition.com
+  # Local dev:  http://localhost:80
+  target: "https://meetadollexhibition.com"
+  phases:
+    # Warm-up: ramp from 10 → 100 users over 60 s
+    - duration: 60
+      arrivalRate: 10
+      rampTo: 100
+      name: "Warm-up"
+    # Sustained load: hold 100 virtual users for 2 minutes
+    - duration: 120
+      arrivalRate: 100
+      name: "Sustained (100 VU)"
+    # Peak spike: 500 concurrent users for 30 s
+    - duration: 30
+      arrivalRate: 500
+      name: "Peak spike (500 VU)"
+    # Cool-down
+    - duration: 30
+      arrivalRate: 10
+      name: "Cool-down"
+
+  # Global defaults
+  http:
+    timeout: 30
+    pool: 10
+
+  # CSV of test vendor accounts for auth flows
+  # Format: email,password
+  # payload:
+  #   path: "./test-vendors.csv"
+  #   fields:
+  #     - "email"
+  #     - "password"
+
+  variables:
+    # Fill in a real exhibition_id from your database
+    exhibitionId: "FILL_IN_EXHIBITION_ID"
+
+  plugins:
+    expect: {}
+
+  ensure:
+    # Fail the test if p95 response time > 2 s
+    p95: 2000
+    # Fail if error rate exceeds 1%
+    maxErrorRate: 1
+
+scenarios:
+  # ── Scenario 1: Browse (anonymous, 50% of traffic) ─────────────────────────
+  - name: "Anonymous browse"
+    weight: 50
+    flow:
+      - get:
+          url: "/api/healthz"
+          expect:
+            - statusCode: 200
+      - think: 1
+      - get:
+          url: "/api/exhibitions"
+          expect:
+            - statusCode: 200
+      - think: 2
+      - get:
+          url: "/api/stalls?exhibition_id={{ exhibitionId }}"
+          expect:
+            - statusCode: 200
+
+  # ── Scenario 2: Registration flow (10% of traffic) ─────────────────────────
+  - name: "Registration"
+    weight: 10
+    flow:
+      - post:
+          url: "/api/auth/register"
+          json:
+            name: "Load Test Vendor {{ $randomString() }}"
+            email: "loadtest+{{ $randomString() }}@example.com"
+            password: "TestPass@123"
+            phone: "08012345678"
+          capture:
+            - json: "$.message"
+              as: "regMsg"
+          expect:
+            - statusCode: [200, 201, 409, 429]
+
+  # ── Scenario 3: Login + stall browse (25% of traffic) ──────────────────────
+  # Requires a pre-seeded test account — fill in test-vendors.csv
+  - name: "Authenticated browse"
+    weight: 25
+    flow:
+      - post:
+          url: "/api/auth/login"
+          json:
+            email: "testvendor@example.com"
+            password: "TestPass@123"
+          capture:
+            - json: "$.token"
+              as: "accessToken"
+          expect:
+            - statusCode: [200, 401, 429]
+      - think: 1
+      - get:
+          url: "/api/stalls?exhibition_id={{ exhibitionId }}"
+          headers:
+            Authorization: "Bearer {{ accessToken }}"
+          expect:
+            - statusCode: 200
+
+  # ── Scenario 4: Concurrent stall holds (15% of traffic) ────────────────────
+  # This is the stress test: multiple users trying to hold the same stall.
+  # Expect exactly one 201 and the rest 409.
+  - name: "Concurrent stall hold"
+    weight: 15
+    flow:
+      - post:
+          url: "/api/auth/login"
+          json:
+            email: "testvendor@example.com"
+            password: "TestPass@123"
+          capture:
+            - json: "$.token"
+              as: "accessToken"
+      - post:
+          url: "/api/stalls/hold"
+          headers:
+            Authorization: "Bearer {{ accessToken }}"
+          json:
+            stall_id: "FILL_IN_STALL_ID"
+          expect:
+            - statusCode: [201, 409, 429]

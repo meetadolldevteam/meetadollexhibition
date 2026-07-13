@@ -1,6 +1,7 @@
 import cron from "node-cron";
 import { supabase } from "../config/supabase";
 import { logger } from "../lib/logger";
+import { cache } from "../lib/cache";
 
 export function startHoldCleanupJob(): void {
   cron.schedule("*/5 * * * *", async () => {
@@ -78,6 +79,9 @@ export function startHoldCleanupJob(): void {
         logger.error({ err: updateStallErr }, "Failed to release stalls from expired holds");
         return;
       }
+
+      // Invalidate stall list cache so the next grid load sees the freed stalls
+      cache.invalidatePrefix("stalls:");
 
       logger.info(
         { expired: safeIds.length, protected: protectedIds.size },

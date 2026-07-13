@@ -15,7 +15,7 @@ const SponsorsMarquee = () => (
     <div className="overflow-hidden">
       <div className="marquee-track">
         {[...logos, ...logos].map((src, i) => (
-          <img key={i} src={src} alt="Sponsor" className="h-8 mx-10 opacity-70 shrink-0" />
+          <img key={i} src={src} alt="Sponsor" className="h-8 mx-10 opacity-70 shrink-0" loading="lazy" width="80" height="32" />
         ))}
       </div>
     </div>
