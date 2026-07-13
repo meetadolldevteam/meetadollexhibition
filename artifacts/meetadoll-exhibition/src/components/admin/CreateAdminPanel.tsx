@@ -19,9 +19,8 @@ const ROLE_CLS: Record<string, string> = {
 };
 
 const ROLE_DESC: Record<string, string> = {
-  super_admin: "Full access · refunds · team management",
-  admin:       "Manage reservations · stalls · announcements",
-  staff:       "View reservations · check in vendors",
+  admin: "Manage reservations · stalls · announcements",
+  staff: "View reservations · check in vendors",
 };
 
 export default function CreateAdminPanel() {
