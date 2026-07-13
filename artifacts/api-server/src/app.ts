@@ -1,6 +1,7 @@
 import express, { type Express, Request, Response, NextFunction } from "express";
 import cors from "cors";
 import helmet from "helmet";
+import compression from "compression";
 import cookieParser from "cookie-parser";
 import pinoHttp from "pino-http";
 import router from "./routes";
@@ -21,10 +22,25 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   next();
 });
 
+// ── Request timeout — 30 seconds max ─────────────────────────────────────────
+// Prevents hung connections under load. Sends 503 rather than hanging forever.
+app.use((req: Request, res: Response, next: NextFunction) => {
+  res.setTimeout(30_000, () => {
+    logger.warn({ method: req.method, url: req.url?.split("?")[0] }, "Request timeout after 30s");
+    if (!res.headersSent) {
+      res.status(503).json({ error: "Request timed out. Please try again." });
+    }
+  });
+  next();
+});
+
+// ── Compression — gzip/deflate all API responses ─────────────────────────────
+app.use(compression());
+
 // ── Security headers (helmet) ─────────────────────────────────────────────────
 app.use(
   helmet({
-    contentSecurityPolicy: false, // frontend serves its own CSP
+    contentSecurityPolicy: false,
     crossOriginEmbedderPolicy: false,
   }),
 );
@@ -41,7 +57,6 @@ const allowedOrigins = new Set([PRODUCTION_ORIGIN, ...replitDevOrigins]);
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Allow same-origin / server-to-server requests (no Origin header)
       if (!origin) return callback(null, true);
       if (allowedOrigins.has(origin)) return callback(null, true);
       callback(new Error(`CORS: origin '${origin}' not allowed`));
@@ -86,8 +101,24 @@ app.use(cookieParser());
 // ── API routes ────────────────────────────────────────────────────────────────
 app.use("/api", generalApiRateLimiter, router);
 
-// ── Global error handler — never expose stack traces or internal details ──────
+// ── Global error handler ──────────────────────────────────────────────────────
+// Maps known infrastructure errors to clean HTTP codes; never exposes internals.
 app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
+  const msg = err.message ?? "";
+
+  // Supabase / network unreachable — return 503 instead of 500
+  if (
+    msg.includes("fetch failed") ||
+    msg.includes("ECONNREFUSED") ||
+    msg.includes("ENOTFOUND") ||
+    msg.includes("ETIMEDOUT") ||
+    msg.includes("UND_ERR")
+  ) {
+    logger.error({ err }, "Database/network unreachable");
+    res.status(503).json({ error: "Service temporarily unavailable. Please try again shortly." });
+    return;
+  }
+
   logger.error({ err }, "Unhandled error");
   res.status(500).json({ error: "Something went wrong" });
 });

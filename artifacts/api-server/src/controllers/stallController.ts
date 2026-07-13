@@ -69,22 +69,33 @@ export async function holdStall(req: AuthRequest, res: Response): Promise<void> 
   const userId = req.user!.id;
 
   try {
-    const { data: stall, error: stallError } = await supabase
+    // ── Atomic claim: UPDATE only if the stall is still 'available' ────────────
+    // This single statement eliminates the read-then-write race condition.
+    // PostgreSQL executes UPDATE atomically, so only one of N concurrent
+    // requests will match the WHERE clause and update the row.
+    const { data: claimedStall, error: claimError } = await supabase
       .from("stalls")
-      .select("id, status, stall_number, price")
+      .update({ status: "held" })
       .eq("id", stall_id)
-      .single();
+      .eq("status", "available")
+      .select("id, stall_number, price")
+      .maybeSingle();
 
-    if (stallError || !stall) {
-      res.status(404).json({ error: "Stall not found" });
+    if (claimError) {
+      logger.error({ err: claimError }, "Failed to claim stall");
+      res.status(500).json({ error: "Failed to hold stall" });
       return;
     }
 
-    if (stall.status !== "available") {
-      res.status(409).json({ error: "Stall is not available" });
+    if (!claimedStall) {
+      // Either stall doesn't exist or was taken by another concurrent request
+      res.status(409).json({
+        error: "Sorry, this stall was just taken. Please select another.",
+      });
       return;
     }
 
+    // ── Stall is now exclusively ours — create the reservation ─────────────────
     const holdExpiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
     const reservationCode = `RES-${uuidv4().slice(0, 8).toUpperCase()}`;
 
@@ -102,19 +113,17 @@ export async function holdStall(req: AuthRequest, res: Response): Promise<void> 
       .single();
 
     if (resError) {
-      if (resError.code === "23505") {
-        res.status(409).json({ error: "Stall already held or reserved" });
-        return;
-      }
-      logger.error({ err: resError }, "Failed to create reservation");
+      // Reservation insert failed — roll back the stall status so it
+      // doesn't get permanently stuck in 'held' with no reservation.
+      logger.error({ err: resError }, "Reservation insert failed — reverting stall status");
+      await supabase
+        .from("stalls")
+        .update({ status: "available" })
+        .eq("id", stall_id);
+
       res.status(500).json({ error: "Failed to hold stall" });
       return;
     }
-
-    await supabase
-      .from("stalls")
-      .update({ status: "held" })
-      .eq("id", stall_id);
 
     res.status(201).json({ reservation, hold_expires_at: holdExpiresAt });
   } catch (err) {
