@@ -50,13 +50,13 @@ export async function initiatePayment(req: AuthRequest, res: Response): Promise<
 
     if (typeof reservationAmount !== "number") {
       logger.error({ reservation_id }, "Could not resolve reservation amount from stall price");
-      res.status(500).json({ error: "Internal server error" });
+      res.status(500).json({ error: "Something went wrong" });
       return;
     }
 
     const { data: userData } = await supabase
       .from("users")
-      .select("name, email, phone")
+      .select("name, email")
       .eq("id", user.id)
       .single();
 
@@ -72,7 +72,7 @@ export async function initiatePayment(req: AuthRequest, res: Response): Promise<
         email: userData?.email ?? user.email,
         amount: Math.round(reservationAmount * 100),
         reference: txRef,
-        callback_url: `${process.env.FRONTEND_URL ?? "https://www.meetadollexhibition.com"}/payment/callback`,
+        callback_url: `https://meetadollexhibition.com/payment/callback`,
         metadata: {
           reservation_id,
           exhibition_name: stallData?.exhibitions?.name ?? "",
@@ -87,7 +87,7 @@ export async function initiatePayment(req: AuthRequest, res: Response): Promise<
     };
 
     if (!paystackData.status || !paystackData.data?.authorization_url) {
-      logger.error({ paystackData }, "Paystack payment initiation failed");
+      logger.error({ status: paystackData.status }, "Paystack payment initiation failed");
       res.status(502).json({ error: "Payment gateway error. Please try again." });
       return;
     }
@@ -104,17 +104,18 @@ export async function initiatePayment(req: AuthRequest, res: Response): Promise<
     res.json({ payment_link: paystackData.data.authorization_url, tx_ref: txRef });
   } catch (err) {
     logger.error({ err }, "Initiate payment error");
-    res.status(500).json({ error: "Internal server error" });
+    res.status(500).json({ error: "Something went wrong" });
   }
 }
 
 export async function paymentWebhook(req: Request, res: Response): Promise<void> {
   const paystackKey = getPaystackKey();
   if (!paystackKey) {
-    res.status(503).json({ error: "Payment gateway not yet configured" });
+    res.status(503).json({ error: "Payment gateway not configured" });
     return;
   }
 
+  // ── Signature verification — reject immediately if missing or invalid ───────
   const signature = req.headers["x-paystack-signature"];
   const rawBody = (req as Request & { rawBody?: Buffer }).rawBody;
 
@@ -123,9 +124,19 @@ export async function paymentWebhook(req: Request, res: Response): Promise<void>
     return;
   }
 
-  const expectedSignature = crypto.createHmac("sha512", paystackKey).update(rawBody).digest("hex");
+  if (!signature || typeof signature !== "string") {
+    logger.warn("Webhook rejected: missing x-paystack-signature header");
+    res.status(401).json({ error: "Missing webhook signature" });
+    return;
+  }
 
-  if (signature !== expectedSignature) {
+  const expectedSignature = crypto
+    .createHmac("sha512", paystackKey)
+    .update(rawBody)
+    .digest("hex");
+
+  if (!crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expectedSignature))) {
+    logger.warn("Webhook rejected: invalid signature");
     res.status(401).json({ error: "Invalid webhook signature" });
     return;
   }
@@ -153,7 +164,7 @@ export async function paymentWebhook(req: Request, res: Response): Promise<void>
       return;
     }
 
-    const { reference, amount, id: paystackTxId } = verifyData.data;
+    const { reference, amount } = verifyData.data;
     const amountNaira = amount / 100;
 
     const { data: payment, error: paymentErr } = await supabase
@@ -163,7 +174,7 @@ export async function paymentWebhook(req: Request, res: Response): Promise<void>
       .single();
 
     if (paymentErr || !payment) {
-      logger.error({ reference, paystackTxId }, "Payment record not found");
+      logger.error({ reference }, "Payment record not found");
       res.status(200).json({ message: "Payment record not found" });
       return;
     }
@@ -196,12 +207,12 @@ export async function paymentWebhook(req: Request, res: Response): Promise<void>
 
       const stall = (reservation as any).stalls;
       const exh = stall?.exhibitions;
-      const user = (reservation as any).users;
+      const vendor = (reservation as any).users;
 
-      if (user?.email) {
+      if (vendor?.email) {
         await sendConfirmationEmail({
-          to: user.email,
-          vendorName: user.name ?? user.email,
+          to: vendor.email,
+          vendorName: vendor.name ?? vendor.email,
           reservationId: reservation.id,
           stallNumber: stall?.stall_number ?? "N/A",
           stallPackage: stall?.package ?? "standard",
@@ -217,6 +228,6 @@ export async function paymentWebhook(req: Request, res: Response): Promise<void>
     res.status(200).json({ message: "Webhook processed" });
   } catch (err) {
     logger.error({ err }, "Webhook processing error");
-    res.status(500).json({ error: "Internal server error" });
+    res.status(500).json({ error: "Something went wrong" });
   }
 }
