@@ -10,6 +10,7 @@ import {
   REFRESH_COOKIE_NAME,
   refreshCookieOptions,
 } from "../lib/tokens";
+import { createAndSendOtp } from "../services/otp";
 
 export async function register(req: Request, res: Response): Promise<void> {
   const { email, password, name, phone } = req.body;
@@ -41,23 +42,20 @@ export async function register(req: Request, res: Response): Promise<void> {
       .select("id, email, name, role")
       .single();
 
-    if (error) {
+    if (error || !user) {
       logger.error({ err: error }, "Failed to create user");
       res.status(500).json({ error: "Failed to create user" });
       return;
     }
 
-    // The verification token is a self-verifying signed JWT (email + purpose claim),
-    // so no verification_token column is needed on the users table.
-    const verificationToken = jwt.sign(
-      { purpose: "email_verification", email },
-      process.env.JWT_SECRET!,
-      { expiresIn: "1h" }
-    );
+    await createAndSendOtp(user.id, user.email, "registration");
 
-    void verificationToken; // TODO: send via email once RESEND_API_KEY flow is wired to this token
-
-    res.status(201).json({ message: "Registration successful. Please verify your email.", user });
+    res.status(201).json({
+      requiresOtp: true,
+      userId: user.id,
+      email: user.email,
+      message: "Account created. Please check your email for the verification code.",
+    });
   } catch (err) {
     logger.error({ err }, "Register error");
     res.status(500).json({ error: "Internal server error" });
@@ -70,7 +68,7 @@ export async function login(req: Request, res: Response): Promise<void> {
   try {
     const { data: user, error } = await supabase
       .from("users")
-      .select("id, email, name, role, password_hash, email_verified")
+      .select("id, email, name, role, password_hash")
       .eq("email", email)
       .single();
 
@@ -85,14 +83,12 @@ export async function login(req: Request, res: Response): Promise<void> {
       return;
     }
 
-    const accessToken = signAccessToken({ id: user.id, email: user.email, role: user.role });
-    const refreshToken = signRefreshToken(user.id);
-
-    res.cookie(REFRESH_COOKIE_NAME, refreshToken, refreshCookieOptions);
+    await createAndSendOtp(user.id, user.email, "login");
 
     res.json({
-      token: accessToken,
-      user: { id: user.id, email: user.email, name: user.name, role: user.role },
+      requiresOtp: true,
+      userId: user.id,
+      message: "Please check your email for the login verification code.",
     });
   } catch (err) {
     logger.error({ err }, "Login error");

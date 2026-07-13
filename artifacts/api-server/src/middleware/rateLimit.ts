@@ -33,6 +33,22 @@ export const stallHoldRateLimiter = rateLimit({
   handler: rateLimitHandler("Too many stall hold attempts. Please try again in an hour."),
 });
 
+export const otpVerifyRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: rateLimitHandler("Too many verification attempts. Please try again in 15 minutes."),
+});
+
+export const otpResendRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: rateLimitHandler("Too many resend requests. Please try again in 15 minutes."),
+});
+
 export const generalApiRateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   limit: 100,

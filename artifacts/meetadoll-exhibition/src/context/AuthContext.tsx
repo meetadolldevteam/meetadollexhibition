@@ -8,11 +8,19 @@ interface User {
   role: string;
 }
 
+export interface OtpRequired {
+  requiresOtp: true;
+  userId: string;
+  email?: string;
+}
+
 interface AuthContextValue {
   user: User | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<void>;
-  register: (data: { name: string; email: string; password: string; phone?: string }) => Promise<void>;
+  login: (email: string, password: string) => Promise<OtpRequired | void>;
+  register: (data: { name: string; email: string; password: string; phone?: string }) => Promise<OtpRequired>;
+  verifyOtp: (userId: string, otp: string, type: "registration" | "login") => Promise<void>;
+  resendOtp: (userId: string, type: "registration" | "login") => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -44,15 +52,50 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     void hydrate();
   }, [hydrate]);
 
-  const login = useCallback(async (email: string, password: string) => {
-    const data = await api.post<{ token: string; user: User }>("/auth/login", { email, password }, { skipAuthRetry: true });
-    setAccessToken(data.token);
-    setUser(data.user);
+  const login = useCallback(async (email: string, password: string): Promise<OtpRequired | void> => {
+    const data = await api.post<{ requiresOtp?: boolean; userId?: string } | { token: string; user: User }>(
+      "/auth/login",
+      { email, password },
+      { skipAuthRetry: true }
+    );
+
+    if ("requiresOtp" in data && data.requiresOtp) {
+      return { requiresOtp: true, userId: data.userId! };
+    }
+
+    const full = data as { token: string; user: User };
+    setAccessToken(full.token);
+    setUser(full.user);
   }, []);
 
   const register = useCallback(
-    async (body: { name: string; email: string; password: string; phone?: string }) => {
-      await api.post("/auth/register", body, { skipAuthRetry: true });
+    async (body: { name: string; email: string; password: string; phone?: string }): Promise<OtpRequired> => {
+      const data = await api.post<{ requiresOtp: boolean; userId: string; email: string }>(
+        "/auth/register",
+        body,
+        { skipAuthRetry: true }
+      );
+      return { requiresOtp: true, userId: data.userId, email: data.email };
+    },
+    []
+  );
+
+  const verifyOtp = useCallback(
+    async (userId: string, otp: string, type: "registration" | "login"): Promise<void> => {
+      const data = await api.post<{ token: string; user: User }>(
+        "/auth/verify-otp",
+        { userId, otp, type },
+        { skipAuthRetry: true }
+      );
+      setAccessToken(data.token);
+      setUser(data.user);
+    },
+    []
+  );
+
+  const resendOtp = useCallback(
+    async (userId: string, type: "registration" | "login"): Promise<void> => {
+      await api.post("/auth/resend-otp", { userId, type }, { skipAuthRetry: true });
     },
     []
   );
@@ -60,14 +103,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = useCallback(async () => {
     try {
       await api.post("/auth/logout");
-    } catch {
-    }
+    } catch {}
     setAccessToken(null);
     setUser(null);
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, register, verifyOtp, resendOtp, logout }}>
       {children}
     </AuthContext.Provider>
   );
