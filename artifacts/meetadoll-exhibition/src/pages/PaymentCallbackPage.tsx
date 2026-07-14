@@ -11,19 +11,28 @@ const logo = { url: "/assets/meetadoll-logo.jpg" };
 export default function PaymentCallbackPage() {
   const [params] = useSearchParams();
   const reference = params.get("reference") ?? params.get("trxref");
+  const urlStatus = params.get("status");
   const [status, setStatus] = useState<"loading" | "success" | "failed">("loading");
   const [countdown, setCountdown] = useState(REDIRECT_DELAY);
   const checked = useRef(false);
 
   useEffect(() => {
-    if (checked.current || !reference) {
-      if (!reference) setStatus("failed");
+    // If Paystack/caller explicitly signals failure, honour it immediately
+    if (urlStatus === "failed" || urlStatus === "cancelled" || urlStatus === "error") {
+      setStatus("failed");
       return;
     }
+    // No reference means we have nothing to confirm
+    if (!reference) {
+      setStatus("failed");
+      return;
+    }
+    if (checked.current) return;
     checked.current = true;
+    // Brief delay to let the webhook process before showing success
     const delay = setTimeout(() => setStatus("success"), 2000);
     return () => clearTimeout(delay);
-  }, [reference]);
+  }, [reference, urlStatus]);
 
   useEffect(() => {
     if (status !== "success") return;

@@ -15,6 +15,7 @@ import MyReservationsPage from "./pages/MyReservationsPage.tsx";
 import AdminDashboardPage from "./pages/AdminDashboardPage.tsx";
 import TermsPage from "./pages/TermsPage.tsx";
 import PrivacyPage from "./pages/PrivacyPage.tsx";
+import DevAuthPage from "./pages/DevAuthPage.tsx";
 
 const CANONICAL_BASE = "https://meetadollexhibition.com";
 const DEFAULT_DESCRIPTION =
@@ -134,6 +135,7 @@ const App = () => {
               <Route path="/admin" element={<AdminDashboardPage />} />
               <Route path="/terms" element={<TermsPage />} />
               <Route path="/privacy" element={<PrivacyPage />} />
+              {import.meta.env.DEV && <Route path="/dev-auth" element={<DevAuthPage />} />}
               <Route path="*" element={<NotFound />} />
             </Routes>
           </AuthProvider>
