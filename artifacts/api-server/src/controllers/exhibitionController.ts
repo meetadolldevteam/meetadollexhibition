@@ -5,7 +5,7 @@ import { cache } from "../lib/cache";
 import { withRetry } from "../lib/retry";
 
 const EXHIBITIONS_CACHE_KEY = "exhibitions:list";
-const EXHIBITIONS_TTL_MS = 60_000; // 60 seconds — exhibition data rarely changes
+const EXHIBITIONS_TTL_MS = 5 * 60_000; // 5 minutes — exhibition data rarely changes
 
 export async function getExhibitions(req: Request, res: Response): Promise<void> {
   const page = Math.max(1, parseInt((req.query.page as string) ?? "1") || 1);

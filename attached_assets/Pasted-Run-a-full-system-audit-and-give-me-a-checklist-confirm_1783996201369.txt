@@ -1,0 +1,28 @@
+Run a full system audit and give me a checklist confirming the status of every item below. For each item mark it as ✅ Done, ⚠️ Partially done, or ❌ Missing and fix anything that is not fully done:
+CONCURRENCY & LOAD:
+1. Database connection pooling — confirm Supabase connections are pooled and reused
+2. Stall hold race condition — unique index on reservations still in place after stall recreation, row-level locking active
+3. OTP queue — same user requesting multiple OTPs cancels previous and only honours latest
+4. 30 second request timeout on all routes
+5. Response compression active
+6. Atomic cron job — cannot accidentally release a stall being actively paid for
+7. /api/healthz endpoint working
+8. All database queries have error handling returning clean 503 if Supabase unreachable
+PERFORMANCE:
+9. Rate limiting on all routes
+10. Database indexes on stalls.exhibition_id, stalls.status, stalls.category, reservations.user_id, reservations.status, reservations.hold_expires_at, payments.transaction_reference, otps.user_id
+11. Pagination on GET /api/stalls and GET /api/admin/reservations
+12. Exhibition data cached in memory for 5 minutes
+13. Structured logging replacing all console.log statements
+14. Retry logic with exponential backoff for transient Supabase failures
+15. Idempotency on payment webhook — duplicate Paystack callbacks cannot create duplicate bookings
+STALL RESTRUCTURE VERIFICATION:
+16. Vendor category restriction still enforced server-side after stall recreation
+17. Food vendors cannot hold fashion stalls and vice versa
+18. Cron job preserves stall category when releasing expired holds back to available
+LOAD CAPACITY VERIFICATION:
+19. Confirm 500 users can browse stalls simultaneously without crashing
+20. Confirm multiple users can purchase different stalls concurrently
+21. Confirm payment callbacks cannot be processed twice
+22. Confirm no duplicate bookings or double allocations can occur
+Fix every item that is not fully done and return the completed checklist."

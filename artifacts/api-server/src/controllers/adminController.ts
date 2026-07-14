@@ -62,6 +62,9 @@ export async function getStats(_req: Request, res: Response): Promise<void> {
 export async function getAllReservations(req: Request, res: Response): Promise<void> {
   try {
     const { status, search } = req.query;
+    const page = Math.max(1, parseInt((req.query.page as string) ?? "1") || 1);
+    const limit = Math.min(100, parseInt((req.query.limit as string) ?? "50") || 50);
+    const offset = (page - 1) * limit;
 
     let query = supabase
       .from("reservations")
@@ -70,12 +73,17 @@ export async function getAllReservations(req: Request, res: Response): Promise<v
         users ( id, name, email, phone ),
         stalls ( stall_number, package, price, exhibitions ( name, venue ) ),
         payments ( status, amount, transaction_reference )
-      `)
+      `, { count: "exact" })
       .order("created_at", { ascending: false });
 
     if (status) query = (query as any).eq("status", status);
 
-    const { data, error } = await query;
+    // Apply server-side pagination only when no text search (search needs full result set)
+    if (!search) {
+      query = (query as any).range(offset, offset + limit - 1);
+    }
+
+    const { data, error, count } = await query;
     if (error) {
       logger.error({ err: error }, "Failed to fetch reservations");
       res.status(500).json({ error: "Failed to fetch reservations" });
@@ -92,7 +100,7 @@ export async function getAllReservations(req: Request, res: Response): Promise<v
       );
     }
 
-    res.json({ reservations: results });
+    res.json({ reservations: results, total: count ?? results.length, page, limit });
   } catch (err) {
     logger.error({ err }, "Admin getAllReservations error");
     res.status(500).json({ error: "Internal server error" });
