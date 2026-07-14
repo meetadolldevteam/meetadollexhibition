@@ -32,6 +32,7 @@ export default function RegisterPage() {
 
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
+  const [vendorCategory, setVendorCategory] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [agreed, setAgreed] = useState(false);
@@ -87,9 +88,10 @@ export default function RegisterPage() {
     setError("");
     if (password !== confirm) { setError("Passwords do not match"); return; }
     if (!agreed) { setError("You must agree to the Terms and Conditions and Privacy Policy to continue."); return; }
+    if (!vendorCategory) { setError("Please select your vendor type."); return; }
     setLoading(true);
     try {
-      const result = await register({ name, email, password, phone: phone || undefined });
+      const result = await register({ name, email, password, phone: phone || undefined, vendor_category: vendorCategory });
       setUserId(result.userId);
       setStep("otp");
       startResendCooldown();
@@ -185,6 +187,22 @@ export default function RegisterPage() {
                   onChange={(e) => setPhone(e.target.value)}
                   placeholder="+234 800 000 0000"
                 />
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="vendor_category">What type of vendor are you? <span className="text-destructive">*</span></Label>
+                <select
+                  id="vendor_category"
+                  required
+                  value={vendorCategory}
+                  onChange={(e) => setVendorCategory(e.target.value)}
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                >
+                  <option value="" disabled>Select vendor type…</option>
+                  <option value="fashion">Fashion Vendor</option>
+                  <option value="food">Food Vendor</option>
+                  <option value="others">Others</option>
+                </select>
               </div>
 
               <div className="flex flex-col gap-1.5">

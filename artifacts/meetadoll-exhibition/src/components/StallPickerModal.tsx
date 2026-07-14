@@ -12,11 +12,40 @@ interface Props {
 }
 
 interface Exhibition { id: string; name: string; }
-interface Stall { id: string; stall_number: number; status: string; price: number; package: string; }
+interface Stall {
+  id: string;
+  stall_number: number;
+  status: string;
+  price: number;
+  package: string;
+  category: string | null;
+}
 
 type Step = "picking" | "holding" | "held" | "paying";
+interface HeldInfo { reservationId: string; code: string; stallNumber: number; price: number; }
 
-interface HeldInfo { reservationId: string; code: string; stallNumber: number; }
+type CategoryFilter = "all" | "Fashion & Others" | "Food";
+
+const TIER1_COLOR = "#C41E3A";
+const TIER2_COLOR = "#00AEAE";
+const TIER1_PRICE = 250000;
+const TIER2_PRICE = 210000;
+
+function tierColor(price: number): string {
+  return price === TIER2_PRICE ? TIER2_COLOR : TIER1_COLOR;
+}
+
+function canVendorBookStall(vendorCategory: string | null | undefined, stallCategory: string | null | undefined): boolean {
+  if (!vendorCategory || !stallCategory) return true;
+  if (vendorCategory === "food") return stallCategory === "Food";
+  return stallCategory === "Fashion & Others";
+}
+
+function vendorAllowedCategory(vendorCategory: string | null | undefined): string | null {
+  if (!vendorCategory) return null;
+  if (vendorCategory === "food") return "Food";
+  return "Fashion & Others";
+}
 
 export default function StallPickerModal({ open, onOpenChange }: Props) {
   const { user } = useAuth();
@@ -30,15 +59,23 @@ export default function StallPickerModal({ open, onOpenChange }: Props) {
   const [step, setStep] = useState<Step>("picking");
   const [held, setHeld] = useState<HeldInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>("all");
+
+  // Auto-set filter to vendor's allowed category on open
+  useEffect(() => {
+    if (open && user?.vendor_category) {
+      const allowed = vendorAllowedCategory(user.vendor_category);
+      if (allowed) setCategoryFilter(allowed as CategoryFilter);
+    }
+    if (!open) setCategoryFilter("all");
+  }, [open, user?.vendor_category]);
 
   useEffect(() => {
     if (!open) return;
     api.get<{ exhibitions: Exhibition[] }>("/exhibitions")
       .then((d) => {
         setExhibitions(d.exhibitions);
-        if (d.exhibitions.length > 0 && !exhibitionId) {
-          setExhibitionId(d.exhibitions[0].id);
-        }
+        if (d.exhibitions.length > 0 && !exhibitionId) setExhibitionId(d.exhibitions[0].id);
       })
       .catch(() => {});
   }, [open]);
@@ -53,17 +90,8 @@ export default function StallPickerModal({ open, onOpenChange }: Props) {
       .finally(() => setLoadingStalls(false));
   }, [exhibitionId, open]);
 
-  const reset = () => {
-    setSelected(null);
-    setStep("picking");
-    setHeld(null);
-    setError(null);
-  };
-
-  const handleClose = (v: boolean) => {
-    onOpenChange(v);
-    if (!v) reset();
-  };
+  const reset = () => { setSelected(null); setStep("picking"); setHeld(null); setError(null); };
+  const handleClose = (v: boolean) => { onOpenChange(v); if (!v) reset(); };
 
   const handleHold = async () => {
     if (!selected || !user) return;
@@ -74,7 +102,7 @@ export default function StallPickerModal({ open, onOpenChange }: Props) {
         "/stalls/hold",
         { stall_id: selected.id }
       );
-      setHeld({ reservationId: data.reservation.id, code: data.reservation.reservation_code, stallNumber: selected.stall_number });
+      setHeld({ reservationId: data.reservation.id, code: data.reservation.reservation_code, stallNumber: selected.stall_number, price: selected.price });
       setStep("held");
       setStalls((prev) => prev.map((s) => s.id === selected.id ? { ...s, status: "held" } : s));
     } catch (err) {
@@ -91,13 +119,25 @@ export default function StallPickerModal({ open, onOpenChange }: Props) {
       const data = await api.post<{ payment_link: string }>("/payments/initiate", { reservation_id: held.reservationId });
       window.location.href = data.payment_link;
     } catch (err) {
-      const msg = err instanceof ApiError ? err.message : "Payment could not be initiated.";
-      setError(msg);
+      setError(err instanceof ApiError ? err.message : "Payment could not be initiated.");
       setStep("held");
     }
   };
 
   const stallMap = new Map(stalls.map((s) => [Number(s.stall_number), s]));
+  const totalStalls = stalls.length > 0 ? Math.max(...stalls.map((s) => s.stall_number)) : 100;
+
+  // Filtered stall numbers to highlight (not restrict — restriction is per-stall)
+  const visibleNumbers = Array.from({ length: totalStalls }, (_, i) => i + 1).filter((n) => {
+    if (categoryFilter === "all") return true;
+    const stall = stallMap.get(n);
+    return stall ? stall.category === categoryFilter : false;
+  });
+
+  // All numbers (for "all" view) or just visible for filtered view
+  const displayNumbers = categoryFilter === "all"
+    ? Array.from({ length: totalStalls }, (_, i) => i + 1)
+    : visibleNumbers;
 
   if (!user) {
     return (
@@ -116,16 +156,20 @@ export default function StallPickerModal({ open, onOpenChange }: Props) {
     );
   }
 
+  const allowedCat = vendorAllowedCategory(user.vendor_category);
+
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="bg-background border-border max-w-2xl max-h-[85vh] overflow-hidden flex flex-col">
+      <DialogContent className="bg-background border-border max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle className="font-display text-2xl">
             {step === "held" ? "Stall held!" : "Pick your stall"}
           </DialogTitle>
           <DialogDescription>
             {step === "held"
-              ? `Stall #${held?.stallNumber} is held for 15 minutes. Complete payment to confirm.`
+              ? `Stall V${held?.stallNumber} is held for 15 minutes. Complete payment to confirm.`
+              : allowedCat
+              ? `Showing ${allowedCat} stalls available for your vendor type.`
               : "Select an available stall then click Hold."}
           </DialogDescription>
         </DialogHeader>
@@ -138,12 +182,13 @@ export default function StallPickerModal({ open, onOpenChange }: Props) {
 
         {(step === "held" || step === "paying") && held ? (
           <div className="flex flex-col gap-4 py-2">
-            <div className="rounded-xl border border-border bg-secondary/30 p-4 text-sm">
-              <p className="font-semibold mb-1">Reservation code: <span className="font-mono">{held.code}</span></p>
-              <p className="text-muted-foreground">Your stall is temporarily held. Pay now to lock it in.</p>
+            <div className="rounded-xl border border-border bg-secondary/30 p-4 text-sm space-y-1">
+              <p className="font-semibold">Reservation code: <span className="font-mono">{held.code}</span></p>
+              <p className="text-muted-foreground">Stall V{held.stallNumber} · <strong className="text-foreground">₦{held.price.toLocaleString()}</strong></p>
+              <p className="text-muted-foreground text-xs">Your stall is temporarily held. Pay now to lock it in.</p>
             </div>
             <Button className="rounded-full" onClick={handlePay} disabled={step === "paying"}>
-              {step === "paying" ? <><Loader2 className="w-4 h-4 animate-spin mr-2" /> Redirecting…</> : "Pay now →"}
+              {step === "paying" ? <><Loader2 className="w-4 h-4 animate-spin mr-2" />Redirecting…</> : "Pay now →"}
             </Button>
             <Button variant="ghost" className="rounded-full" onClick={() => navigate("/my-reservations")}>
               Pay later from My Reservations
@@ -151,6 +196,7 @@ export default function StallPickerModal({ open, onOpenChange }: Props) {
           </div>
         ) : (
           <>
+            {/* Exhibition selector */}
             {exhibitions.length > 1 && (
               <div className="flex gap-2 flex-wrap">
                 {exhibitions.map((e) => (
@@ -165,12 +211,49 @@ export default function StallPickerModal({ open, onOpenChange }: Props) {
               </div>
             )}
 
-            <div className="flex items-center gap-4 text-xs text-muted-foreground py-1">
-              <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-primary inline-block" /> Selected</span>
-              <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded border border-border inline-block" /> Available</span>
-              <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-zinc-500 inline-block" /> Taken</span>
+            {/* Category filter */}
+            <div className="flex items-center gap-2 flex-wrap">
+              {(["all", "Fashion & Others", "Food"] as CategoryFilter[]).map((f) => (
+                <button
+                  key={f}
+                  onClick={() => setCategoryFilter(f)}
+                  className={`text-xs rounded-full px-3 py-1.5 border font-medium transition-colors ${
+                    categoryFilter === f
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "border-border text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {f === "all" ? "All Stalls" : f}
+                </button>
+              ))}
+              <span className="ml-auto text-xs text-muted-foreground">
+                {stalls.filter((s) => s.status === "available").length} available
+              </span>
             </div>
 
+            {/* Legend */}
+            <div className="flex items-center gap-4 text-xs text-muted-foreground flex-wrap">
+              <span className="flex items-center gap-1.5">
+                <span className="w-3 h-3 rounded border-2 inline-block" style={{ borderColor: TIER1_COLOR }} />
+                ₦250,000 (Tier 1)
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="w-3 h-3 rounded border-2 inline-block" style={{ borderColor: TIER2_COLOR }} />
+                ₦210,000 (Tier 2)
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="w-3 h-3 rounded bg-zinc-300 inline-block" />
+                Taken
+              </span>
+              {allowedCat && (
+                <span className="flex items-center gap-1.5">
+                  <span className="w-3 h-3 rounded bg-zinc-100 border border-zinc-300 opacity-40 inline-block" />
+                  Not your category
+                </span>
+              )}
+            </div>
+
+            {/* Stall grid */}
             <div className="overflow-y-auto flex-1 -mx-2 px-2">
               {loadingStalls ? (
                 <div className="flex items-center justify-center py-12">
@@ -179,29 +262,47 @@ export default function StallPickerModal({ open, onOpenChange }: Props) {
               ) : stalls.length === 0 ? (
                 <p className="text-center text-muted-foreground py-12 text-sm">No stalls found for this exhibition.</p>
               ) : (
-                <div className="grid grid-cols-6 sm:grid-cols-10 gap-2">
-                  {Array.from({ length: 150 }, (_, i) => i + 1).map((n) => {
+                <div className="grid grid-cols-5 sm:grid-cols-10 gap-1.5">
+                  {displayNumbers.map((n) => {
                     const stall = stallMap.get(n);
-                    const available = stall?.status === "available";
-                    const isTaken = stall ? stall.status !== "available" : false;
+                    if (!stall) return null;
+
+                    const isAvailable = stall.status === "available";
+                    const isTaken = !isAvailable;
                     const isSelected = selected?.stall_number === n;
+                    const isRestricted = !canVendorBookStall(user.vendor_category, stall.category);
+                    const color = tierColor(stall.price);
+                    const catShort = stall.category === "Food" ? "Food" : "F&O";
+
+                    let cellClass = "aspect-square rounded-md text-center border-2 transition-all flex flex-col items-center justify-center cursor-pointer select-none ";
+
+                    if (isTaken) {
+                      cellClass += "bg-zinc-300 border-zinc-300 text-zinc-500 cursor-not-allowed opacity-60";
+                    } else if (isRestricted) {
+                      cellClass += "bg-zinc-50 border-zinc-200 text-zinc-300 cursor-not-allowed opacity-40";
+                    } else if (isSelected) {
+                      cellClass += "text-white scale-105 shadow-md";
+                    } else {
+                      cellClass += "bg-white text-zinc-800 hover:scale-105 hover:shadow-sm";
+                    }
+
                     return (
                       <button
                         key={n}
-                        disabled={!available || step === "holding"}
-                        onClick={() => available && stall && setSelected(stall)}
-                        className={[
-                          "aspect-square rounded-md text-xs font-semibold border transition-all flex items-center justify-center",
-                          isTaken
-                            ? "bg-zinc-400 text-white border-zinc-400 cursor-not-allowed opacity-70"
-                            : !stall
-                            ? "bg-zinc-400 text-white border-zinc-400 cursor-not-allowed opacity-70"
-                            : isSelected
-                            ? "bg-primary text-primary-foreground border-primary scale-105 shadow"
-                            : "bg-white text-zinc-800 border-zinc-300 hover:border-primary hover:text-primary",
-                        ].join(" ")}
+                        disabled={isTaken || isRestricted || step === "holding"}
+                        onClick={() => isAvailable && !isRestricted && stall && setSelected(stall)}
+                        className={cellClass}
+                        style={
+                          isSelected
+                            ? { backgroundColor: color, borderColor: color }
+                            : !isTaken && !isRestricted
+                            ? { borderColor: color }
+                            : undefined
+                        }
+                        title={isRestricted ? `Not available for your vendor type (${user.vendor_category})` : `V${n} · ${stall.category} · ₦${stall.price.toLocaleString()}`}
                       >
-                        {n}
+                        <span className="text-[10px] font-bold leading-tight">V{n}</span>
+                        <span className="text-[7px] leading-tight opacity-70">{catShort}</span>
                       </button>
                     );
                   })}
@@ -209,18 +310,28 @@ export default function StallPickerModal({ open, onOpenChange }: Props) {
               )}
             </div>
 
-            <div className="flex items-center justify-between pt-4 border-t border-border">
-              <p className="text-sm">
+            {/* Footer action bar */}
+            <div className="flex items-center justify-between pt-3 border-t border-border gap-3">
+              <div className="text-sm min-w-0">
                 {selected ? (
-                  <span className="flex items-center gap-1.5 text-primary font-medium">
-                    <Check className="w-4 h-4" /> Stall #{selected.stall_number} · ₦{selected.price?.toLocaleString()}
-                  </span>
+                  <div className="flex flex-col">
+                    <span className="flex items-center gap-1.5 font-medium" style={{ color: tierColor(selected.price) }}>
+                      <Check className="w-4 h-4 shrink-0" /> V{selected.stall_number} · {selected.category}
+                    </span>
+                    <span className="text-xs text-muted-foreground font-semibold">
+                      ₦{selected.price.toLocaleString()}
+                    </span>
+                  </div>
                 ) : (
                   <span className="text-muted-foreground">No stall selected</span>
                 )}
-              </p>
-              <Button onClick={handleHold} disabled={!selected || step === "holding"} className="rounded-full">
-                {step === "holding" ? <><Loader2 className="w-4 h-4 animate-spin mr-2" /> Holding…</> : "Hold stall"}
+              </div>
+              <Button
+                onClick={handleHold}
+                disabled={!selected || step === "holding"}
+                className="rounded-full shrink-0"
+              >
+                {step === "holding" ? <><Loader2 className="w-4 h-4 animate-spin mr-2" />Holding…</> : "Hold stall"}
               </Button>
             </div>
           </>

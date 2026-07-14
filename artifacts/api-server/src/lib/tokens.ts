@@ -5,6 +5,7 @@ export interface AccessTokenPayload {
   email: string;
   name: string;
   role: string;
+  vendor_category?: string | null;
 }
 
 export interface RefreshTokenPayload {

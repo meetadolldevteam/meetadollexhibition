@@ -6,6 +6,7 @@ interface User {
   email: string;
   name: string;
   role: string;
+  vendor_category?: string | null;
 }
 
 export interface OtpRequired {
@@ -18,7 +19,7 @@ interface AuthContextValue {
   user: User | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<OtpRequired | void>;
-  register: (data: { name: string; email: string; password: string; phone?: string }) => Promise<OtpRequired>;
+  register: (data: { name: string; email: string; password: string; phone?: string; vendor_category?: string }) => Promise<OtpRequired>;
   verifyOtp: (userId: string, otp: string, type: "registration" | "login") => Promise<void>;
   resendOtp: (userId: string, type: "registration" | "login") => Promise<void>;
   logout: () => Promise<void>;
@@ -69,7 +70,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const register = useCallback(
-    async (body: { name: string; email: string; password: string; phone?: string }): Promise<OtpRequired> => {
+    async (body: { name: string; email: string; password: string; phone?: string; vendor_category?: string }): Promise<OtpRequired> => {
       const data = await api.post<{ requiresOtp: boolean; userId: string; email: string }>(
         "/auth/register",
         body,

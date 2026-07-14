@@ -6,10 +6,18 @@ import { cache } from "../lib/cache";
 import { withRetry } from "../lib/retry";
 import { AuthRequest } from "../middleware/auth";
 
-const STALLS_TTL_MS = 10_000; // 10 seconds — stalls change during purchases
+const STALLS_TTL_MS = 10_000;
 
 function stallsCacheKey(exhibitionId: string): string {
   return `stalls:${exhibitionId}`;
+}
+
+/** Returns true if the vendor's category is allowed to book a stall with the given category */
+function canVendorBookStall(vendorCategory: string | null | undefined, stallCategory: string | null | undefined): boolean {
+  if (!vendorCategory || !stallCategory) return true; // no restriction if either is unset (backward compat)
+  if (vendorCategory === "food") return stallCategory === "Food";
+  // fashion + others both map to "Fashion & Others" stalls
+  return stallCategory === "Fashion & Others";
 }
 
 export async function getStallStats(req: Request, res: Response): Promise<void> {
@@ -61,8 +69,6 @@ export async function getStalls(req: Request, res: Response): Promise<void> {
   const limit = Math.min(200, parseInt((limitParam as string) ?? "200") || 200);
   const offset = (page - 1) * limit;
 
-  // Short-TTL cache: keeps the grid snappy under load while staying
-  // within 10 seconds of real availability state.
   const cacheKey = `${stallsCacheKey(exhibition_id as string)}:${page}:${limit}`;
   const cached = cache.get<{ stalls: unknown[] }>(cacheKey);
   if (cached) {
@@ -76,7 +82,7 @@ export async function getStalls(req: Request, res: Response): Promise<void> {
       async () =>
         supabase
           .from("stalls")
-          .select("id, stall_number, status, price, package")
+          .select("id, stall_number, status, price, package, category")
           .eq("exhibition_id", exhibition_id)
           .order("stall_number", { ascending: true })
           .range(offset, offset + limit - 1),
@@ -104,9 +110,28 @@ export async function holdStall(req: AuthRequest, res: Response): Promise<void> 
   const userId = req.user!.id;
 
   try {
+    // ── Category check (parallel fetch) ───────────────────────────────────────
+    const [stallCheck, userCheck] = await Promise.all([
+      supabase.from("stalls").select("id, status, category").eq("id", stall_id).single(),
+      supabase.from("users").select("vendor_category").eq("id", userId).single(),
+    ]);
+
+    if (stallCheck.error || !stallCheck.data) {
+      res.status(404).json({ error: "Stall not found" });
+      return;
+    }
+
+    const stallCategory = (stallCheck.data as any).category as string | null;
+    const vendorCategory = (userCheck.data as any)?.vendor_category as string | null;
+
+    if (!canVendorBookStall(vendorCategory, stallCategory)) {
+      res.status(403).json({
+        error: "This stall is not available for your vendor category. Please select a stall in your category.",
+      });
+      return;
+    }
+
     // ── Atomic claim: UPDATE only if the stall is still 'available' ────────────
-    // PostgreSQL executes this UPDATE atomically — only one of N concurrent
-    // requests will match the WHERE clause and get a row back.
     const { data: claimedStall, error: claimError } = await supabase
       .from("stalls")
       .update({ status: "held" })
@@ -128,7 +153,7 @@ export async function holdStall(req: AuthRequest, res: Response): Promise<void> 
       return;
     }
 
-    // ── Stall is exclusively ours — create the reservation ────────────────────
+    // ── Create the reservation ────────────────────────────────────────────────
     const holdExpiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
     const reservationCode = `RES-${uuidv4().slice(0, 8).toUpperCase()}`;
 
@@ -146,19 +171,12 @@ export async function holdStall(req: AuthRequest, res: Response): Promise<void> 
       .single();
 
     if (resError) {
-      // Roll back the stall status so it doesn't get permanently stuck in 'held'
       logger.error({ err: resError }, "Reservation insert failed — reverting stall status");
-      await supabase
-        .from("stalls")
-        .update({ status: "available" })
-        .eq("id", stall_id);
-
+      await supabase.from("stalls").update({ status: "available" }).eq("id", stall_id);
       res.status(500).json({ error: "Failed to hold stall" });
       return;
     }
 
-    // Invalidate the stalls cache for this exhibition so the grid reflects
-    // the new 'held' status within the next request instead of waiting for TTL
     if (claimedStall.exhibition_id) {
       cache.invalidatePrefix(stallsCacheKey(claimedStall.exhibition_id));
     }

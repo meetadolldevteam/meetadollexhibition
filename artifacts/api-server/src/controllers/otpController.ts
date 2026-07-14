@@ -98,7 +98,7 @@ export async function verifyOtp(req: Request, res: Response): Promise<void> {
     // Fetch user
     const { data: user, error: userErr } = await supabase
       .from("users")
-      .select("id, email, name, role")
+      .select("id, email, name, role, vendor_category")
       .eq("id", userId)
       .single();
 
@@ -115,13 +115,14 @@ export async function verifyOtp(req: Request, res: Response): Promise<void> {
         .eq("id", userId);
     }
 
+    const u = user as typeof user & { vendor_category?: string | null };
     // Issue tokens
-    const accessToken = signAccessToken({ id: user.id, email: user.email, name: (user as any).name ?? "", role: user.role });
+    const accessToken = signAccessToken({ id: u.id, email: u.email, name: u.name ?? "", role: u.role, vendor_category: u.vendor_category });
     const refreshToken = signRefreshToken(user.id);
     res.cookie(REFRESH_COOKIE_NAME, refreshToken, refreshCookieOptions);
 
     logger.info({ userId, type }, "OTP verified — JWT issued");
-    res.json({ token: accessToken, user });
+    res.json({ token: accessToken, user: { id: u.id, email: u.email, name: u.name, role: u.role, vendor_category: u.vendor_category } });
   } catch (err) {
     logger.error({ err }, "Verify OTP error");
     res.status(500).json({ error: "Something went wrong" });

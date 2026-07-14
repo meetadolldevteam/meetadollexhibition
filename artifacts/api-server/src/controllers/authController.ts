@@ -13,7 +13,7 @@ import {
 import { createAndSendOtp } from "../services/otp";
 
 export async function register(req: Request, res: Response): Promise<void> {
-  const { email, password, name, phone } = req.body;
+  const { email, password, name, phone, vendor_category } = req.body;
 
   try {
     const { data: existing } = await supabase
@@ -38,8 +38,9 @@ export async function register(req: Request, res: Response): Promise<void> {
         phone,
         role: "vendor",
         email_verified: false,
+        vendor_category: vendor_category ?? null,
       })
-      .select("id, email, name, role")
+      .select("id, email, name, role, vendor_category")
       .single();
 
     if (error || !user) {
@@ -109,7 +110,7 @@ export async function refresh(req: Request, res: Response): Promise<void> {
 
     const { data: user, error } = await supabase
       .from("users")
-      .select("id, email, name, role")
+      .select("id, email, name, role, vendor_category")
       .eq("id", decoded.id)
       .single();
 
@@ -119,14 +120,15 @@ export async function refresh(req: Request, res: Response): Promise<void> {
       return;
     }
 
-    const accessToken = signAccessToken({ id: user.id, email: user.email, name: user.name ?? "", role: user.role });
+    const u = user as typeof user & { vendor_category?: string | null };
+    const accessToken = signAccessToken({ id: u.id, email: u.email, name: u.name ?? "", role: u.role, vendor_category: u.vendor_category });
     const newRefreshToken = signRefreshToken(user.id);
 
     res.cookie(REFRESH_COOKIE_NAME, newRefreshToken, refreshCookieOptions);
 
     res.json({
       token: accessToken,
-      user: { id: user.id, email: user.email, name: user.name, role: user.role },
+      user: { id: u.id, email: u.email, name: u.name, role: u.role, vendor_category: u.vendor_category },
     });
   } catch (err) {
     res.clearCookie(REFRESH_COOKIE_NAME, { path: "/api/auth" });
