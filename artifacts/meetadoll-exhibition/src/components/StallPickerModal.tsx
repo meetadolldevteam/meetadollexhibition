@@ -255,6 +255,16 @@ export default function StallPickerModal({ open, onOpenChange }: Props) {
 
             {/* Stall grid */}
             <div className="overflow-y-auto flex-1 -mx-2 px-2">
+              {/* Stall guide map */}
+              <div className="mb-3 rounded-xl overflow-hidden border border-border">
+                <img
+                  src="/images/stall-guide.jpg"
+                  alt="Stall layout guide showing tier locations, categories and prices"
+                  className="w-full h-auto block"
+                  loading="lazy"
+                />
+              </div>
+
               {loadingStalls ? (
                 <div className="flex items-center justify-center py-12">
                   <Loader2 className="w-6 h-6 animate-spin text-primary" />
