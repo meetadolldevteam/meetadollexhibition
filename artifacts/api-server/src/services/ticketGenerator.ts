@@ -77,13 +77,6 @@ export async function generateTicketPDF(reservation: TicketData): Promise<Buffer
 
     let y = B;
 
-    // ── Outer maroon border ──────────────────────────────────────────────────
-    doc
-      .rect(0, 0, W, H)
-      .lineWidth(B * 2)
-      .strokeColor(MAROON)
-      .stroke();
-
     // ── Section 1: Black header with logo ────────────────────────────────────
     doc.rect(B, y, W - B * 2, headerH).fill(BLACK);
 
@@ -172,12 +165,13 @@ export async function generateTicketPDF(reservation: TicketData): Promise<Buffer
         .text(leftLabel.toUpperCase(), B + 16, ry + 7, {
           width: colW - 20,
           characterSpacing: 0.5,
+          lineBreak: false,
         });
       doc
         .fillColor(TEXT_DARK)
         .fontSize(10)
         .font("Helvetica-Bold")
-        .text(leftVal, B + 16, ry + 18, { width: colW - 20 });
+        .text(leftVal, B + 16, ry + 18, { width: colW - 20, lineBreak: false });
 
       doc
         .fillColor(LABEL_GREY)
@@ -186,12 +180,13 @@ export async function generateTicketPDF(reservation: TicketData): Promise<Buffer
         .text(rightLabel.toUpperCase(), B + colW + 10, ry + 7, {
           width: colW - 20,
           characterSpacing: 0.5,
+          lineBreak: false,
         });
       doc
         .fillColor(TEXT_DARK)
         .fontSize(10)
         .font("Helvetica-Bold")
-        .text(rightVal, B + colW + 10, ry + 18, { width: colW - 20 });
+        .text(rightVal, B + colW + 10, ry + 18, { width: colW - 20, lineBreak: false });
     });
 
     y += detailsH;
@@ -247,7 +242,15 @@ export async function generateTicketPDF(reservation: TicketData): Promise<Buffer
       .text("meetadollexhibition.com", B, qrY + qrSize + 20, {
         width: W - B * 2,
         align: "center",
+        lineBreak: false,
       });
+
+    // ── Outer maroon border drawn last so it sits on top of all sections ──────
+    doc
+      .rect(B / 2, B / 2, W - B, H - B)
+      .lineWidth(B)
+      .strokeColor(MAROON)
+      .stroke();
 
     doc.end();
   });
