@@ -46,10 +46,10 @@ export interface TicketData {
 
 export async function generateTicketPDF(reservation: TicketData): Promise<Buffer> {
   const W = 600;
-  const H = 520;
+  const H = 550;
   const B = 4;
 
-  const headerH = 140;
+  const headerH = 170;
   const titleH = 66;
   const stallH = 60;
   const detailsH = 90;
@@ -88,7 +88,7 @@ export async function generateTicketPDF(reservation: TicketData): Promise<Buffer
     doc.rect(B, y, W - B * 2, headerH).fill(BLACK);
 
     if (logoBuffer) {
-      const logoSize = 120;
+      const logoSize = 150;
       const logoX = (W - logoSize) / 2;
       const logoY = y + (headerH - logoSize) / 2;
       doc.image(logoBuffer, logoX, logoY, { width: logoSize, height: logoSize });
