@@ -37,15 +37,17 @@ function tierColor(price: number): string {
 }
 
 function canVendorBookStall(vendorCategory: string | null | undefined, stallCategory: string | null | undefined): boolean {
-  if (!vendorCategory || !stallCategory) return true;
+  if (!vendorCategory || !stallCategory) return true; // no restriction if either is unset
   if (vendorCategory === "food") return stallCategory === "Food";
-  return stallCategory === "Fashion & Others";
+  if (vendorCategory === "fashion" || vendorCategory === "others") return stallCategory === "Fashion & Others";
+  return true; // unknown vendor_category — allow all stalls
 }
 
 function vendorAllowedCategory(vendorCategory: string | null | undefined): string | null {
   if (!vendorCategory) return null;
   if (vendorCategory === "food") return "Food";
-  return "Fashion & Others";
+  if (vendorCategory === "fashion" || vendorCategory === "others") return "Fashion & Others";
+  return null; // unknown vendor_category — no filter applied
 }
 
 export default function StallPickerModal({ open, onOpenChange, defaultTierFilter }: Props) {
@@ -301,7 +303,7 @@ export default function StallPickerModal({ open, onOpenChange, defaultTierFilter
                     const isSelected = selected?.stall_number === n;
                     const isRestricted = !canVendorBookStall(user.vendor_category, stall.category);
                     const color = tierColor(stall.price);
-                    const catShort = stall.category === "Food" ? "Food" : "F&O";
+                    const catShort = stall.category === "Food" ? "Food" : "Fashion & Others";
 
                     let cellClass = "aspect-square rounded-md text-center border-2 transition-all flex flex-col items-center justify-center cursor-pointer select-none ";
 

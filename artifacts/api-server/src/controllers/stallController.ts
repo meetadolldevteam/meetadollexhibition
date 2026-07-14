@@ -14,10 +14,10 @@ function stallsCacheKey(exhibitionId: string): string {
 
 /** Returns true if the vendor's category is allowed to book a stall with the given category */
 function canVendorBookStall(vendorCategory: string | null | undefined, stallCategory: string | null | undefined): boolean {
-  if (!vendorCategory || !stallCategory) return true; // no restriction if either is unset (backward compat)
+  if (!vendorCategory || !stallCategory) return true; // no restriction if either is unset
   if (vendorCategory === "food") return stallCategory === "Food";
-  // fashion + others both map to "Fashion & Others" stalls
-  return stallCategory === "Fashion & Others";
+  if (vendorCategory === "fashion" || vendorCategory === "others") return stallCategory === "Fashion & Others";
+  return true; // unknown vendor_category — allow all stalls
 }
 
 export async function getStallStats(req: Request, res: Response): Promise<void> {
