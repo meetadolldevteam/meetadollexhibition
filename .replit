@@ -29,3 +29,4 @@ JWT_SECRET = "mX7#kP9$nQ2@vR5wT8yB3zA6jL1sD4eF"
 
 [userenv.production]
 VITE_GA_MEASUREMENT_ID = "G-P69KK62W4X"
+VITE_GSC_VERIFICATION = "fa2LnKoiXlVqdqt9t3f6vyaNp-kfOXRydxMpZc_AFfs"
