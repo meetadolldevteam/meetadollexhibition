@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "F4Kfbq3npgAsjXOK9126S"
+uri = "file://sample-ticket.pdf"
+type = "pdf"
+title = "Meetadoll Vendor Stall Pass — Sample Ticket"
