@@ -1,0 +1,90 @@
+You are a senior full-stack engineer and technical SEO specialist. Audit the deployed Meetadoll Exhibition website and implement a complete production-ready analytics, SEO, and search engine setup without breaking any existing functionality.
+
+Requirements:
+
+1. Google Analytics 4 (GA4)
+
+- Integrate Google Analytics 4 using an environment variable named "VITE_GA_MEASUREMENT_ID" (or the appropriate environment variable for the project's framework).
+- Do not hardcode the Measurement ID.
+- Initialize analytics only in production.
+- Track page views automatically for all routes, including SPA navigation if applicable.
+
+2. Google Search Console
+
+- Add support for Google Search Console verification using a meta tag or HTML verification file.
+- Make the verification value configurable through an environment variable.
+
+3. Bing Webmaster Tools
+
+- Add Bing site verification support using an environment variable.
+
+4. XML Sitemap
+
+- Generate a valid "sitemap.xml".
+- Include every public page.
+- Use "https://meetadollexhibition.com" as the canonical domain.
+- Ensure the sitemap updates automatically when new pages are added if possible.
+
+5. robots.txt
+
+- Create a production-ready "robots.txt".
+- Allow search engines to crawl public pages.
+- Reference the sitemap location.
+
+6. Canonical URLs
+
+- Add canonical tags to every page.
+- Prevent duplicate indexing.
+
+7. SEO Metadata
+
+- Add unique SEO title and meta description for every important page.
+- Add relevant keywords where appropriate.
+- Include author, robots, and theme-color meta tags.
+
+8. Open Graph & Social Sharing
+
+- Add Open Graph tags ("og:title", "og:description", "og:image", "og:url", "og:type").
+- Add Twitter Card metadata.
+- Ensure links shared on WhatsApp, Facebook, LinkedIn, and X display correctly.
+
+9. Structured Data
+
+- Implement Schema.org structured data.
+- Use Event schema for the exhibition.
+- Add Organization schema for Meetadoll.
+- Include venue, event date, organizer, website, and ticket information where available.
+
+10. Favicon & Web App
+
+- Ensure favicon, Apple touch icon, and web manifest are correctly configured.
+
+11. Performance
+
+- Improve Core Web Vitals where possible.
+- Lazy-load non-critical images.
+- Preload important assets.
+- Minimize unnecessary JavaScript execution.
+
+12. Accessibility
+
+- Add missing alt text.
+- Improve semantic HTML.
+- Ensure proper heading hierarchy.
+- Fix obvious accessibility issues.
+
+13. Security
+
+- Verify HTTPS assumptions.
+- Recommend appropriate security headers.
+- Ensure no sensitive environment variables are exposed to the client.
+
+14. Final Report
+    When finished, provide:
+
+- A list of every file changed.
+- A summary of every improvement made.
+- Any environment variables I need to configure.
+- Any manual steps remaining, including Google Search Console verification, Bing verification, and adding the GA4 Measurement ID.
+
+Do not modify payment logic, authentication, booking functionality, email functionality, or the UI design unless necessary for SEO or accessibility. Preserve all existing functionality.

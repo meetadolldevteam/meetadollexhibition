@@ -43,8 +43,14 @@ app.use(
   helmet({
     contentSecurityPolicy: false,
     crossOriginEmbedderPolicy: false,
+    referrerPolicy: { policy: "strict-origin-when-cross-origin" },
   }),
 );
+
+app.use((_req: Request, res: Response, next: NextFunction) => {
+  res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+  next();
+});
 
 // ── CORS — only allow the production domain + Replit dev preview URLs ─────────
 const PRODUCTION_ORIGIN = "https://meetadollexhibition.com";

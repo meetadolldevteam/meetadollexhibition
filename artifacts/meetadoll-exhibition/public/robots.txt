@@ -12,3 +12,8 @@ Allow: /
 
 User-agent: *
 Allow: /
+Disallow: /admin
+Disallow: /my-reservations
+Disallow: /payment/
+
+Sitemap: https://meetadollexhibition.com/sitemap.xml

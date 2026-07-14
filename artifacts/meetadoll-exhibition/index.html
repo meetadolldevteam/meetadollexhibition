@@ -3,33 +3,123 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Meetadoll Exhibition | Reserve Your Stall</title>
+    <title>Meetadoll Exhibition | Reserve Your Vendor Stall</title>
     <meta name="description" content="Reserve your vendor stall for the Meetadoll Exhibition. Nigeria's premier curated marketplace of lifestyle, commerce, and entertainment." />
+    <meta name="keywords" content="Meetadoll Exhibition, vendor stall, Nigeria exhibition, Kaduna exhibition, trade fair, vendor registration, marketplace, art exhibition, fashion exhibition, food exhibition" />
     <meta name="author" content="Meetadoll Exhibition" />
+    <meta name="robots" content="index, follow" />
+    <meta name="theme-color" content="#8B0000" />
+
+    <!-- Search Engine Verification -->
+    <meta name="google-site-verification" content="%VITE_GSC_VERIFICATION%" />
+    <meta name="msvalidate.01" content="%VITE_BING_VERIFICATION%" />
 
     <!-- Favicon -->
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="icon" type="image/x-icon" href="/favicon.ico" />
     <link rel="apple-touch-icon" href="/assets/meetadoll-logo.jpg" />
-    <meta name="theme-color" content="#8B0000" />
+    <link rel="manifest" href="/site.webmanifest" />
+
+    <!-- Canonical (default; overridden per-page by React) -->
+    <link rel="canonical" href="https://meetadollexhibition.com/" />
+
+    <!-- Performance: preconnect + dns-prefetch -->
+    <link rel="preconnect" href="https://www.googletagmanager.com" />
+    <link rel="dns-prefetch" href="https://www.googletagmanager.com" />
+
+    <!-- Preload critical assets -->
+    <link rel="preload" href="/assets/meetadoll-logo.jpg" as="image" type="image/jpeg" />
 
     <!-- Open Graph -->
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://meetadollexhibition.com" />
-    <meta property="og:title" content="Meetadoll Exhibition" />
-    <meta property="og:description" content="Reserve your vendor stall for the Meetadoll Exhibition. Nigeria's premier curated exhibition of art, design and innovation." />
+    <meta property="og:title" content="Meetadoll Exhibition | Reserve Your Vendor Stall" />
+    <meta property="og:description" content="Secure your spot at Nigeria's premier curated exhibition. 100 vendor stalls, two days, Umar Musa Yar'adua Hall, Kaduna State." />
     <meta property="og:image" content="https://meetadollexhibition.com/og-image.jpg" />
     <meta property="og:image:width" content="1280" />
     <meta property="og:image:height" content="853" />
+    <meta property="og:image:alt" content="Meetadoll Exhibition — vendor marketplace banner" />
     <meta property="og:site_name" content="Meetadoll Exhibition" />
     <meta property="og:locale" content="en_NG" />
 
-    <!-- Twitter Card -->
+    <!-- Twitter / X Card -->
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:site" content="@meetadoll_exhibition" />
-    <meta name="twitter:title" content="Meetadoll Exhibition" />
-    <meta name="twitter:description" content="Reserve your vendor stall for the Meetadoll Exhibition. Nigeria's premier curated exhibition of art, design and innovation." />
+    <meta name="twitter:title" content="Meetadoll Exhibition | Reserve Your Vendor Stall" />
+    <meta name="twitter:description" content="Secure your spot at Nigeria's premier curated exhibition. 100 vendor stalls, two days, Umar Musa Yar'adua Hall, Kaduna State." />
     <meta name="twitter:image" content="https://meetadollexhibition.com/og-image.jpg" />
+    <meta name="twitter:image:alt" content="Meetadoll Exhibition — vendor marketplace banner" />
+
+    <!-- Structured Data: Event + Organization -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "Event",
+          "@id": "https://meetadollexhibition.com/#event",
+          "name": "Meetadoll Exhibition",
+          "description": "Nigeria's premier curated exhibition of art, design and innovation. 100 vendor stalls across fashion, food, and lifestyle categories at Umar Musa Yar'adua Hall, Kaduna.",
+          "startDate": "2026-12-05T10:00:00+01:00",
+          "endDate": "2026-12-06T18:00:00+01:00",
+          "eventStatus": "https://schema.org/EventScheduled",
+          "eventAttendanceMode": "https://schema.org/OfflineEventAttendanceMode",
+          "location": {
+            "@type": "Place",
+            "name": "Umar Musa Yar'adua Hall",
+            "address": {
+              "@type": "PostalAddress",
+              "addressLocality": "Kaduna",
+              "addressRegion": "Kaduna State",
+              "addressCountry": "NG"
+            }
+          },
+          "organizer": {
+            "@type": "Organization",
+            "@id": "https://meetadollexhibition.com/#organization",
+            "name": "Meetadoll",
+            "url": "https://meetadollexhibition.com"
+          },
+          "offers": [
+            {
+              "@type": "Offer",
+              "name": "Tier 1 Vendor Stall",
+              "description": "Prime placement on the exhibition floor. Fashion & Others: V1–V25, V98–V100. Food: V26–V39, V81–V97.",
+              "price": "250000",
+              "priceCurrency": "NGN",
+              "availability": "https://schema.org/InStock",
+              "validFrom": "2026-01-01",
+              "url": "https://meetadollexhibition.com/register"
+            },
+            {
+              "@type": "Offer",
+              "name": "Tier 2 Vendor Stall",
+              "description": "Placement on the exhibition floor. Food only: V40–V80.",
+              "price": "210000",
+              "priceCurrency": "NGN",
+              "availability": "https://schema.org/InStock",
+              "validFrom": "2026-01-01",
+              "url": "https://meetadollexhibition.com/register"
+            }
+          ],
+          "image": "https://meetadollexhibition.com/og-image.jpg",
+          "url": "https://meetadollexhibition.com"
+        },
+        {
+          "@type": "Organization",
+          "@id": "https://meetadollexhibition.com/#organization",
+          "name": "Meetadoll",
+          "url": "https://meetadollexhibition.com",
+          "logo": {
+            "@type": "ImageObject",
+            "url": "https://meetadollexhibition.com/assets/meetadoll-logo.jpg",
+            "width": 640,
+            "height": 640
+          }
+        }
+      ]
+    }
+    </script>
   </head>
 
   <body>

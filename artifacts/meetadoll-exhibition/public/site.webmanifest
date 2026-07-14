@@ -1,0 +1,23 @@
+{
+  "name": "Meetadoll Exhibition",
+  "short_name": "Meetadoll",
+  "description": "Reserve your vendor stall for the Meetadoll Exhibition. Nigeria's premier curated marketplace.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#8B0000",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "256x256",
+      "type": "image/x-icon",
+      "purpose": "any"
+    },
+    {
+      "src": "/assets/meetadoll-logo.jpg",
+      "sizes": "640x640",
+      "type": "image/jpeg",
+      "purpose": "any maskable"
+    }
+  ]
+}
