@@ -46,7 +46,7 @@ router.post(
     body("vendor_category")
       .optional({ nullable: true, checkFalsy: true })
       .trim()
-      .isIn(["Fashion", "Food", "Others"])
+      .isIn(["fashion", "food", "others", "Fashion", "Food", "Others"])
       .withMessage("Vendor category must be Fashion, Food, or Others"),
   ],
   validate,
