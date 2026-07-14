@@ -110,7 +110,7 @@ export default function StallGridPanel({ canEdit }: { canEdit: boolean }) {
               key={s.id}
               onClick={() => setSelectedStall(s)}
               className={`h-10 rounded border text-xs font-semibold transition-all ${STATUS_COLOR[s.status] ?? "bg-secondary"}`}
-              title={`Stall #${s.stall_number} — ${STATUS_LABEL[s.status] ?? s.status}`}
+              title={`Stall #${s.stall_number} - ${STATUS_LABEL[s.status] ?? s.status}`}
             >
               {s.stall_number}
             </button>

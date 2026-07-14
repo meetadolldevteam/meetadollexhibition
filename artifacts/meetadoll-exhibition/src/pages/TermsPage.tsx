@@ -34,7 +34,7 @@ export default function TermsPage() {
         </Section>
 
         <Section title="2. About the Platform">
-          <p>Meetadoll Exhibition is an online stall reservation platform that allows vendors to reserve exhibition stalls for events organized or listed by Meetadoll. The Platform facilitates reservations and payments but does not itself organize all listed exhibitions.</p>
+          <p>Meetadoll Exhibition is an online stall reservation platform where vendors can book exhibition stalls for events organized or listed by Meetadoll. The Platform handles reservations and payments but does not directly organize all listed exhibitions.</p>
         </Section>
 
         <Section title="3. User Accounts">

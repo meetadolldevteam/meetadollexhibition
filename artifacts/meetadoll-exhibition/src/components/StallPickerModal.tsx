@@ -9,6 +9,7 @@ import { useNavigate } from "react-router-dom";
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  defaultTierFilter?: "tier1" | "tier2";
 }
 
 interface Exhibition { id: string; name: string; }
@@ -24,7 +25,7 @@ interface Stall {
 type Step = "picking" | "holding" | "held" | "paying";
 interface HeldInfo { reservationId: string; code: string; stallNumber: number; price: number; }
 
-type CategoryFilter = "all" | "Fashion & Others" | "Food";
+type StallFilter = "all" | "tier1" | "tier2" | "Fashion & Others" | "Food";
 
 const TIER1_COLOR = "#C41E3A";
 const TIER2_COLOR = "#00AEAE";
@@ -47,7 +48,7 @@ function vendorAllowedCategory(vendorCategory: string | null | undefined): strin
   return "Fashion & Others";
 }
 
-export default function StallPickerModal({ open, onOpenChange }: Props) {
+export default function StallPickerModal({ open, onOpenChange, defaultTierFilter }: Props) {
   const { user } = useAuth();
   const navigate = useNavigate();
 
@@ -59,16 +60,19 @@ export default function StallPickerModal({ open, onOpenChange }: Props) {
   const [step, setStep] = useState<Step>("picking");
   const [held, setHeld] = useState<HeldInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>("all");
+  const [stallFilter, setStallFilter] = useState<StallFilter>("all");
 
-  // Auto-set filter to vendor's allowed category on open
   useEffect(() => {
-    if (open && user?.vendor_category) {
-      const allowed = vendorAllowedCategory(user.vendor_category);
-      if (allowed) setCategoryFilter(allowed as CategoryFilter);
+    if (open) {
+      if (defaultTierFilter) {
+        setStallFilter(defaultTierFilter);
+      } else if (user?.vendor_category) {
+        const allowed = vendorAllowedCategory(user.vendor_category);
+        if (allowed) setStallFilter(allowed as StallFilter);
+      }
     }
-    if (!open) setCategoryFilter("all");
-  }, [open, user?.vendor_category]);
+    if (!open) setStallFilter("all");
+  }, [open, defaultTierFilter, user?.vendor_category]);
 
   useEffect(() => {
     if (!open) return;
@@ -127,17 +131,26 @@ export default function StallPickerModal({ open, onOpenChange }: Props) {
   const stallMap = new Map(stalls.map((s) => [Number(s.stall_number), s]));
   const totalStalls = stalls.length > 0 ? Math.max(...stalls.map((s) => s.stall_number)) : 100;
 
-  // Filtered stall numbers to highlight (not restrict — restriction is per-stall)
-  const visibleNumbers = Array.from({ length: totalStalls }, (_, i) => i + 1).filter((n) => {
-    if (categoryFilter === "all") return true;
+  const allNumbers = Array.from({ length: totalStalls }, (_, i) => i + 1);
+
+  const displayNumbers = allNumbers.filter((n) => {
     const stall = stallMap.get(n);
-    return stall ? stall.category === categoryFilter : false;
+    if (!stall) return stallFilter === "all";
+    if (stallFilter === "tier1") return stall.price === TIER1_PRICE;
+    if (stallFilter === "tier2") return stall.price === TIER2_PRICE;
+    if (stallFilter === "Fashion & Others") return stall.category === "Fashion & Others";
+    if (stallFilter === "Food") return stall.category === "Food";
+    return true;
   });
 
-  // All numbers (for "all" view) or just visible for filtered view
-  const displayNumbers = categoryFilter === "all"
-    ? Array.from({ length: totalStalls }, (_, i) => i + 1)
-    : visibleNumbers;
+  const availableInView = stalls.filter((s) => {
+    if (s.status !== "available") return false;
+    if (stallFilter === "tier1") return s.price === TIER1_PRICE;
+    if (stallFilter === "tier2") return s.price === TIER2_PRICE;
+    if (stallFilter === "Fashion & Others") return s.category === "Fashion & Others";
+    if (stallFilter === "Food") return s.category === "Food";
+    return true;
+  }).length;
 
   if (!user) {
     return (
@@ -158,6 +171,14 @@ export default function StallPickerModal({ open, onOpenChange }: Props) {
 
   const allowedCat = vendorAllowedCategory(user.vendor_category);
 
+  const FILTER_TABS: { value: StallFilter; label: string }[] = [
+    { value: "all", label: "All Stalls" },
+    { value: "tier1", label: "Tier 1 - ₦250k" },
+    { value: "tier2", label: "Tier 2 - ₦210k" },
+    { value: "Fashion & Others", label: "Fashion & Others" },
+    { value: "Food", label: "Food" },
+  ];
+
   return (
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="bg-background border-border max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
@@ -169,7 +190,7 @@ export default function StallPickerModal({ open, onOpenChange }: Props) {
             {step === "held"
               ? `Stall V${held?.stallNumber} is held for 15 minutes. Complete payment to confirm.`
               : allowedCat
-              ? `Showing ${allowedCat} stalls available for your vendor type.`
+              ? `Showing ${allowedCat} stalls for your vendor type.`
               : "Select an available stall then click Hold."}
           </DialogDescription>
         </DialogHeader>
@@ -188,7 +209,7 @@ export default function StallPickerModal({ open, onOpenChange }: Props) {
               <p className="text-muted-foreground text-xs">Your stall is temporarily held. Pay now to lock it in.</p>
             </div>
             <Button className="rounded-full" onClick={handlePay} disabled={step === "paying"}>
-              {step === "paying" ? <><Loader2 className="w-4 h-4 animate-spin mr-2" />Redirecting…</> : "Pay now →"}
+              {step === "paying" ? <><Loader2 className="w-4 h-4 animate-spin mr-2" />Redirecting...</> : "Pay now"}
             </Button>
             <Button variant="ghost" className="rounded-full" onClick={() => navigate("/my-reservations")}>
               Pay later from My Reservations
@@ -196,7 +217,6 @@ export default function StallPickerModal({ open, onOpenChange }: Props) {
           </div>
         ) : (
           <>
-            {/* Exhibition selector */}
             {exhibitions.length > 1 && (
               <div className="flex gap-2 flex-wrap">
                 {exhibitions.map((e) => (
@@ -211,23 +231,23 @@ export default function StallPickerModal({ open, onOpenChange }: Props) {
               </div>
             )}
 
-            {/* Category filter */}
-            <div className="flex items-center gap-2 flex-wrap">
-              {(["all", "Fashion & Others", "Food"] as CategoryFilter[]).map((f) => (
+            {/* Filter tabs */}
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {FILTER_TABS.map((tab) => (
                 <button
-                  key={f}
-                  onClick={() => setCategoryFilter(f)}
+                  key={tab.value}
+                  onClick={() => setStallFilter(tab.value)}
                   className={`text-xs rounded-full px-3 py-1.5 border font-medium transition-colors ${
-                    categoryFilter === f
+                    stallFilter === tab.value
                       ? "bg-primary text-primary-foreground border-primary"
                       : "border-border text-muted-foreground hover:text-foreground"
                   }`}
                 >
-                  {f === "all" ? "All Stalls" : f}
+                  {tab.label}
                 </button>
               ))}
               <span className="ml-auto text-xs text-muted-foreground">
-                {stalls.filter((s) => s.status === "available").length} available
+                {availableInView} available
               </span>
             </div>
 
@@ -235,11 +255,11 @@ export default function StallPickerModal({ open, onOpenChange }: Props) {
             <div className="flex items-center gap-4 text-xs text-muted-foreground flex-wrap">
               <span className="flex items-center gap-1.5">
                 <span className="w-3 h-3 rounded border-2 inline-block" style={{ borderColor: TIER1_COLOR }} />
-                ₦250,000 (Tier 1)
+                Tier 1 - ₦250,000
               </span>
               <span className="flex items-center gap-1.5">
                 <span className="w-3 h-3 rounded border-2 inline-block" style={{ borderColor: TIER2_COLOR }} />
-                ₦210,000 (Tier 2)
+                Tier 2 - ₦210,000
               </span>
               <span className="flex items-center gap-1.5">
                 <span className="w-3 h-3 rounded bg-zinc-300 inline-block" />
@@ -255,7 +275,6 @@ export default function StallPickerModal({ open, onOpenChange }: Props) {
 
             {/* Stall grid */}
             <div className="overflow-y-auto flex-1 -mx-2 px-2">
-              {/* Stall guide map */}
               <div className="mb-3 rounded-xl overflow-hidden border border-border">
                 <img
                   src="/images/stall-guide.jpg"
@@ -309,7 +328,7 @@ export default function StallPickerModal({ open, onOpenChange }: Props) {
                             ? { borderColor: color }
                             : undefined
                         }
-                        title={isRestricted ? `Not available for your vendor type (${user.vendor_category})` : `V${n} · ${stall.category} · ₦${stall.price.toLocaleString()}`}
+                        title={isRestricted ? `Not available for your vendor type (${user.vendor_category})` : `V${n} - ${stall.category} - ₦${stall.price.toLocaleString()}`}
                       >
                         <span className="text-[10px] font-bold leading-tight">V{n}</span>
                         <span className="text-[7px] leading-tight opacity-70">{catShort}</span>
@@ -326,7 +345,7 @@ export default function StallPickerModal({ open, onOpenChange }: Props) {
                 {selected ? (
                   <div className="flex flex-col">
                     <span className="flex items-center gap-1.5 font-medium" style={{ color: tierColor(selected.price) }}>
-                      <Check className="w-4 h-4 shrink-0" /> V{selected.stall_number} · {selected.category}
+                      <Check className="w-4 h-4 shrink-0" /> V{selected.stall_number} - {selected.category}
                     </span>
                     <span className="text-xs text-muted-foreground font-semibold">
                       ₦{selected.price.toLocaleString()}
@@ -341,7 +360,7 @@ export default function StallPickerModal({ open, onOpenChange }: Props) {
                 disabled={!selected || step === "holding"}
                 className="rounded-full shrink-0"
               >
-                {step === "holding" ? <><Loader2 className="w-4 h-4 animate-spin mr-2" />Holding…</> : "Hold stall"}
+                {step === "holding" ? <><Loader2 className="w-4 h-4 animate-spin mr-2" />Holding...</> : "Hold stall"}
               </Button>
             </div>
           </>

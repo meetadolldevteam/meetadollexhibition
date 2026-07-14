@@ -14,10 +14,10 @@ const AboutSection = () => (
             Business and empowerment through entertainment
           </h2>
           <p className="text-muted-foreground text-lg leading-relaxed mb-6">
-            Meetadoll Exhibition is a premium lifestyle, commerce, and empowerment platform designed to deliver real economic outcomes by connecting curated vendors with buying customers in a structured, high-energy marketplace. It blends business, culture, entertainment, and community engagement to drive sales, visibility, and meaningful interaction, not just crowd size.
+            Meetadoll Exhibition brings together vendors, buyers, and entertainment under one roof for two days of real business and good energy. We focus on actual sales, genuine connections, and giving vendors the kind of visibility that moves the needle.
           </p>
           <p className="text-muted-foreground text-lg leading-relaxed mb-8">
-            Youth-driven and powered by entertainment and digital storytelling, it remains a trusted, professional platform for SMEs, women entrepreneurs, and institutional partners to engage audiences in a credible, results-focused environment.
+            Built by young people with a love for culture and digital storytelling, we have become a go-to platform for SMEs, women entrepreneurs, and brand partners who want to reach the right audience in a high-energy, professional setting.
           </p>
           <a href="#agenda" className="text-primary hover:opacity-80 font-medium underline underline-offset-4 w-fit">
             See agenda →
@@ -47,7 +47,7 @@ const AboutSection = () => (
         {[
           { label: "Dates", value: DATES_DISPLAY },
           { label: "Venue", value: VENUE },
-          { label: "Vendor stalls", value: "150 slots" },
+          { label: "Vendor stalls", value: "100 slots" },
         ].map((item) => (
           <div key={item.label} className="bg-secondary border border-border rounded-2xl p-6 text-center shadow-sm hover:shadow-md hover:border-primary/40 transition-all">
             <p className="text-xs uppercase tracking-[0.25em] text-primary font-semibold mb-2">{item.label}</p>

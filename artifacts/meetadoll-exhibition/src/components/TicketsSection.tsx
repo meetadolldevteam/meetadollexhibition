@@ -6,7 +6,10 @@ import ScrollReveal from "./ScrollReveal";
 import StallPickerModal from "./StallPickerModal";
 import { useAuth } from "@/context/AuthContext";
 
-interface StallStats { total: number; available: number; held: number; reserved: number; }
+const TIER1_COLOR = "#C41E3A";
+const TIER2_COLOR = "#00AEAE";
+
+interface StallData { price: number; status: string; }
 interface Exhibition { id: string; }
 
 const FEATURES = [
@@ -20,7 +23,8 @@ const TicketsSection = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [pickerOpen, setPickerOpen] = useState(false);
-  const [stats, setStats] = useState<StallStats | null>(null);
+  const [pickerTier, setPickerTier] = useState<"tier1" | "tier2" | undefined>(undefined);
+  const [stalls, setStalls] = useState<StallData[]>([]);
 
   useEffect(() => {
     const API = import.meta.env.VITE_API_URL ?? "/api";
@@ -29,24 +33,35 @@ const TicketsSection = () => {
       .then((d: { exhibitions: Exhibition[] }) => {
         const first = d.exhibitions?.[0];
         if (!first) return;
-        return fetch(`${API}/stalls/stats?exhibition_id=${first.id}`);
+        return fetch(`${API}/stalls?exhibition_id=${first.id}&limit=200`);
       })
       .then((r) => r?.json())
-      .then((s: StallStats | undefined) => { if (s) setStats(s); })
+      .then((s: { stalls: StallData[] } | undefined) => { if (s?.stalls) setStalls(s.stalls); })
       .catch(() => {});
   }, []);
 
-  const total = stats?.total ?? 150;
-  const taken = stats ? stats.held + stats.reserved : 0;
-  const available = stats?.available ?? total;
-  const pct = total > 0 ? ((taken / total) * 100) : 0;
+  const tier1Total = stalls.filter((s) => s.price === 250000).length || 59;
+  const tier2Total = stalls.filter((s) => s.price === 210000).length || 41;
+  const tier1Available = stalls.length > 0 ? stalls.filter((s) => s.price === 250000 && s.status === "available").length : tier1Total;
+  const tier2Available = stalls.length > 0 ? stalls.filter((s) => s.price === 210000 && s.status === "available").length : tier2Total;
 
-  const handleReserve = () => {
+  const tier1Taken = tier1Total - tier1Available;
+  const tier2Taken = tier2Total - tier2Available;
+  const tier1Pct = tier1Total > 0 ? (tier1Taken / tier1Total) * 100 : 0;
+  const tier2Pct = tier2Total > 0 ? (tier2Taken / tier2Total) * 100 : 0;
+
+  const handleReserve = (tier: "tier1" | "tier2") => {
     if (user) {
+      setPickerTier(tier);
       setPickerOpen(true);
     } else {
       navigate("/register");
     }
+  };
+
+  const handlePickerChange = (open: boolean) => {
+    setPickerOpen(open);
+    if (!open) setPickerTier(undefined);
   };
 
   return (
@@ -54,40 +69,91 @@ const TicketsSection = () => {
       <div className="max-w-4xl mx-auto">
         <ScrollReveal>
           <p className="text-xs uppercase tracking-[0.25em] text-primary font-medium mb-3">Exhibit with us</p>
-          <h2 className="text-3xl sm:text-4xl md:text-5xl font-display font-bold mb-4 text-background">Only 150 Vendor Stalls Available</h2>
-          <p className="text-primary font-display font-bold text-2xl md:text-3xl mb-3">₦210,000 per stall</p>
+          <h2 className="text-3xl sm:text-4xl md:text-5xl font-display font-bold mb-4 text-background">Only 100 Vendor Stalls Available</h2>
           <p className="text-background/70 max-w-2xl mb-10 md:mb-12">
-            Secure your spot with just a small fee. Only 150 stalls available.
+            Secure your spot before they're gone. 100 stalls total across two price tiers.
           </p>
         </ScrollReveal>
-        <div className="max-w-md mx-auto">
+
+        <div className="grid sm:grid-cols-2 gap-4 max-w-2xl mx-auto">
+          {/* Tier 1 Card */}
           <ScrollReveal>
-            <div className="bg-card text-foreground border border-border rounded-xl p-5 md:p-6 flex flex-col h-full shadow-sm">
+            <div className="bg-card text-foreground rounded-xl p-5 md:p-6 flex flex-col h-full shadow-sm border-2" style={{ borderColor: TIER1_COLOR }}>
               <div className="flex items-center gap-2 mb-1">
-                <Store size={14} className="text-primary" />
-                <p className="text-xs text-muted-foreground uppercase tracking-widest">Vendor Stall</p>
+                <Store size={14} style={{ color: TIER1_COLOR }} />
+                <p className="text-xs text-muted-foreground uppercase tracking-widest">Tier 1 Stalls</p>
               </div>
-              <p className="text-foreground font-medium text-sm mb-3">Standard exhibition stall for the full 2 days</p>
-              <p className="text-2xl md:text-3xl font-display font-bold mb-4">₦210,000</p>
+              <p className="text-xs text-muted-foreground mb-2 leading-relaxed">
+                Fashion &amp; Others: V1–V25, V98–V100<br />
+                Food: V26–V39, V81–V97
+              </p>
+              <p className="text-2xl md:text-3xl font-display font-bold mb-4" style={{ color: TIER1_COLOR }}>₦250,000</p>
 
               <div className="mb-4">
                 <div className="flex justify-between text-xs text-muted-foreground mb-1.5">
-                  <span className="text-primary font-semibold">{available} slots left</span>
-                  <span>{taken} / {total}</span>
+                  <span className="font-semibold" style={{ color: TIER1_COLOR }}>{tier1Available} slots left</span>
+                  <span>{tier1Taken} / {tier1Total}</span>
                 </div>
                 <div className="h-1.5 w-full bg-secondary rounded-full overflow-hidden">
-                  <div className="h-full bg-primary transition-all" style={{ width: `${pct}%` }} />
+                  <div className="h-full transition-all rounded-full" style={{ width: `${tier1Pct}%`, backgroundColor: TIER1_COLOR }} />
                 </div>
               </div>
 
-              <Button size="sm" className="rounded-full w-full mb-4" onClick={handleReserve}>
+              <Button
+                size="sm"
+                className="rounded-full w-full mb-4 text-white"
+                style={{ backgroundColor: TIER1_COLOR, borderColor: TIER1_COLOR }}
+                onClick={() => handleReserve("tier1")}
+              >
                 {user ? "Pick & reserve stall" : "Register to reserve"}
               </Button>
 
               <ul className="space-y-2 mt-auto">
                 {FEATURES.map((f) => (
                   <li key={f} className="flex items-start gap-2 text-xs text-muted-foreground">
-                    <Check className="w-3.5 h-3.5 text-primary shrink-0 mt-0.5" />
+                    <Check className="w-3.5 h-3.5 shrink-0 mt-0.5" style={{ color: TIER1_COLOR }} />
+                    <span>{f}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </ScrollReveal>
+
+          {/* Tier 2 Card */}
+          <ScrollReveal delay={0.1}>
+            <div className="bg-card text-foreground rounded-xl p-5 md:p-6 flex flex-col h-full shadow-sm border-2" style={{ borderColor: TIER2_COLOR }}>
+              <div className="flex items-center gap-2 mb-1">
+                <Store size={14} style={{ color: TIER2_COLOR }} />
+                <p className="text-xs text-muted-foreground uppercase tracking-widest">Tier 2 Stalls</p>
+              </div>
+              <p className="text-xs text-muted-foreground mb-2 leading-relaxed">
+                Food only: V40–V80
+              </p>
+              <p className="text-2xl md:text-3xl font-display font-bold mb-4" style={{ color: TIER2_COLOR }}>₦210,000</p>
+
+              <div className="mb-4">
+                <div className="flex justify-between text-xs text-muted-foreground mb-1.5">
+                  <span className="font-semibold" style={{ color: TIER2_COLOR }}>{tier2Available} slots left</span>
+                  <span>{tier2Taken} / {tier2Total}</span>
+                </div>
+                <div className="h-1.5 w-full bg-secondary rounded-full overflow-hidden">
+                  <div className="h-full transition-all rounded-full" style={{ width: `${tier2Pct}%`, backgroundColor: TIER2_COLOR }} />
+                </div>
+              </div>
+
+              <Button
+                size="sm"
+                className="rounded-full w-full mb-4 text-white"
+                style={{ backgroundColor: TIER2_COLOR, borderColor: TIER2_COLOR }}
+                onClick={() => handleReserve("tier2")}
+              >
+                {user ? "Pick & reserve stall" : "Register to reserve"}
+              </Button>
+
+              <ul className="space-y-2 mt-auto">
+                {FEATURES.map((f) => (
+                  <li key={f} className="flex items-start gap-2 text-xs text-muted-foreground">
+                    <Check className="w-3.5 h-3.5 shrink-0 mt-0.5" style={{ color: TIER2_COLOR }} />
                     <span>{f}</span>
                   </li>
                 ))}
@@ -96,7 +162,8 @@ const TicketsSection = () => {
           </ScrollReveal>
         </div>
       </div>
-      <StallPickerModal open={pickerOpen} onOpenChange={setPickerOpen} />
+
+      <StallPickerModal open={pickerOpen} onOpenChange={handlePickerChange} defaultTierFilter={pickerTier} />
     </section>
   );
 };

@@ -231,7 +231,7 @@ export default function LoginPage() {
                   <span className="text-xs text-muted-foreground">remaining</span>
                 </div>
                 {otpCountdown === 0 && (
-                  <p className="text-xs text-destructive">Code expired — request a new one below.</p>
+                  <p className="text-xs text-destructive">Code expired. Request a new one below.</p>
                 )}
               </div>
 

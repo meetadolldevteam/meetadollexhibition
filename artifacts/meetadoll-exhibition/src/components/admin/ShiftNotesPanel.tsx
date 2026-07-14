@@ -46,7 +46,7 @@ export default function ShiftNotesPanel() {
   return (
     <div className="max-w-2xl space-y-6">
       <div className="rounded-2xl border border-border bg-blue-50 dark:bg-blue-950/20 p-4 text-sm text-blue-800 dark:text-blue-300">
-        Leave notes for the next shift — anything they should know before taking over.
+        Leave notes for the next shift. Anything they should know before taking over.
       </div>
 
       {/* Add note */}

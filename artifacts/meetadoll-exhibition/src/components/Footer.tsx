@@ -15,7 +15,7 @@ const Footer = () => (
             <p className="font-sans-grotesk font-bold text-2xl md:text-4xl leading-tight">
               Ready to <span className="text-primary font-script font-normal italic">exhibit</span> with Meetadoll?
             </p>
-            <p className="text-background/60 text-sm mt-2">Stalls are limited to 150 at ₦210,000 each. Reserve yours today.</p>
+            <p className="text-background/60 text-sm mt-2">Only 100 stalls available. Prices from ₦210,000. Reserve yours today.</p>
           </div>
           <div className="flex flex-wrap gap-3">
             <a
