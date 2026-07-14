@@ -27,7 +27,7 @@ interface HeldInfo { reservationId: string; code: string; stallNumber: number; p
 
 type StallFilter = "all" | "tier1" | "tier2" | "Fashion & Others" | "Food";
 
-const TIER1_COLOR = "#C41E3A";
+const TIER1_COLOR = "#8B0000";
 const TIER2_COLOR = "#00AEAE";
 const TIER1_PRICE = 250000;
 const TIER2_PRICE = 210000;

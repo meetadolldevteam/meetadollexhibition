@@ -17,7 +17,7 @@ const AboutSection = () => (
             Meetadoll Exhibition brings together vendors, buyers, and entertainment under one roof for two days of real business and good energy. We focus on actual sales, genuine connections, and giving vendors the kind of visibility that moves the needle.
           </p>
           <p className="text-muted-foreground text-lg leading-relaxed mb-8">
-            Built by young people with a love for culture and digital storytelling, we have become a go-to platform for SMEs, women entrepreneurs, and brand partners who want to reach the right audience in a high-energy, professional setting.
+            Built by young people with a love for culture and digital storytelling, we have become a go-to platform for SMEs, women entrepreneurs, and brand partners who want to reach the right audience in a high energy, professional setting.
           </p>
           <a href="#agenda" className="text-primary hover:opacity-80 font-medium underline underline-offset-4 w-fit">
             See agenda →

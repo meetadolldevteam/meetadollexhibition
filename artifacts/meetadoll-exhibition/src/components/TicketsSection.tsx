@@ -6,16 +6,23 @@ import ScrollReveal from "./ScrollReveal";
 import StallPickerModal from "./StallPickerModal";
 import { useAuth } from "@/context/AuthContext";
 
-const TIER1_COLOR = "#C41E3A";
+const TIER1_COLOR = "#8B0000";
 const TIER2_COLOR = "#00AEAE";
 
 interface StallData { price: number; status: string; }
 interface Exhibition { id: string; }
 
-const FEATURES = [
+const TIER1_FEATURES = [
   "Prime placement on the exhibition floor",
   "Access for the full 2-day event",
-  "Vendor listing across our channels",
+  "Connect and trade with fellow exhibitors",
+  "On-site support from the Meetadoll team",
+];
+
+const TIER2_FEATURES = [
+  "Placement on the exhibition floor",
+  "Access for the full 2-day event",
+  "Connect and trade with fellow exhibitors",
   "On-site support from the Meetadoll team",
 ];
 
@@ -109,7 +116,7 @@ const TicketsSection = () => {
               </Button>
 
               <ul className="space-y-2 mt-auto">
-                {FEATURES.map((f) => (
+                {TIER1_FEATURES.map((f) => (
                   <li key={f} className="flex items-start gap-2 text-xs text-muted-foreground">
                     <Check className="w-3.5 h-3.5 shrink-0 mt-0.5" style={{ color: TIER1_COLOR }} />
                     <span>{f}</span>
@@ -151,7 +158,7 @@ const TicketsSection = () => {
               </Button>
 
               <ul className="space-y-2 mt-auto">
-                {FEATURES.map((f) => (
+                {TIER2_FEATURES.map((f) => (
                   <li key={f} className="flex items-start gap-2 text-xs text-muted-foreground">
                     <Check className="w-3.5 h-3.5 shrink-0 mt-0.5" style={{ color: TIER2_COLOR }} />
                     <span>{f}</span>
