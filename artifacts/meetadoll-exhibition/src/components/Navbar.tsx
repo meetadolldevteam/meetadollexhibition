@@ -71,7 +71,12 @@ const Navbar = () => {
             </button>
           </div>
         ) : (
-          <Button size="sm" className="rounded-full ml-1" onClick={handleCTA}>Register now</Button>
+          <div className="flex items-center gap-2 ml-1">
+            <Button asChild size="sm" variant="ghost" className="rounded-full">
+              <Link to="/login">Sign in</Link>
+            </Button>
+            <Button size="sm" className="rounded-full" onClick={handleCTA}>Register now</Button>
+          </div>
         )}
       </nav>
 
@@ -118,6 +123,15 @@ const Navbar = () => {
           <Button size="lg" className="rounded-full mt-2" onClick={handleCTA}>
             {user ? "Reserve stall" : "Register now"}
           </Button>
+          {!user && (
+            <Link
+              to="/login"
+              onClick={() => setMobileOpen(false)}
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Already have an account? <span className="text-primary font-medium">Sign in</span>
+            </Link>
+          )}
           {user && (
             <button onClick={handleLogout} className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1.5">
               <LogOut className="w-4 h-4" /> Sign out
