@@ -17,7 +17,8 @@ app.set("trust proxy", 1);
 app.use((req: Request, res: Response, next: NextFunction) => {
   const host = req.headers.host ?? "";
   if (host.startsWith("www.")) {
-    return res.redirect(301, `https://meetadollexhibition.com${req.url}`);
+    const code = req.method === "GET" || req.method === "HEAD" ? 301 : 308;
+    return res.redirect(code, `https://meetadollexhibition.com${req.url}`);
   }
   next();
 });
