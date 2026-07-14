@@ -1,10 +1,11 @@
 import { Router } from "express";
 import { authenticate } from "../middleware/auth";
-import { getMyReservations, getReservation, cancelMyReservation } from "../controllers/reservationController";
+import { getMyReservations, getReservation, cancelMyReservation, downloadTicket } from "../controllers/reservationController";
 
 const router = Router();
 
 router.get("/mine", authenticate, getMyReservations);
+router.get("/:id/ticket", authenticate, downloadTicket);
 router.get("/:id", authenticate, getReservation);
 router.delete("/:id", authenticate, cancelMyReservation);
 

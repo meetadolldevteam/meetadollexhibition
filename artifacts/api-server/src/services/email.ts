@@ -25,6 +25,7 @@ interface ConfirmationEmailData {
   venue: string;
   date: string;
   organizerContact: string;
+  ticketPDF?: Buffer | null;
 }
 
 function buildConfirmationHtml(data: ConfirmationEmailData): string {
@@ -251,13 +252,18 @@ export async function sendConfirmationEmail(data: ConfirmationEmailData): Promis
   }
 
   try {
+    const attachments = data.ticketPDF
+      ? [{ filename: "meetadoll-stall-ticket.pdf", content: data.ticketPDF }]
+      : [];
+
     await resend.emails.send({
       from: FROM_EMAIL,
       to: data.to,
       subject: `✅ Stall Confirmed: ${data.exhibitionName} (Stall #${data.stallNumber})`,
       html: buildConfirmationHtml(data),
-    });
-    logger.info({ reservationId: data.reservationId, to: data.to }, "Confirmation email sent");
+      attachments,
+    } as Parameters<typeof resend.emails.send>[0]);
+    logger.info({ reservationId: data.reservationId, to: data.to, hasTicket: !!data.ticketPDF }, "Confirmation email sent");
   } catch (err) {
     logger.error({ err, reservationId: data.reservationId }, "Failed to send confirmation email");
     throw err;

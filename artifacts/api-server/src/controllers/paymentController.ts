@@ -4,6 +4,7 @@ import { v4 as uuidv4 } from "uuid";
 import { supabase } from "../config/supabase";
 import { logger } from "../lib/logger";
 import { sendConfirmationEmail } from "../services/email";
+import { safeGenerateTicketPDF } from "../services/ticketGenerator";
 import { AuthRequest } from "../middleware/auth";
 
 const PAYSTACK_BASE = "https://api.paystack.co";
@@ -197,7 +198,7 @@ export async function paymentWebhook(req: Request, res: Response): Promise<void>
       .from("reservations")
       .select(`
         id, stall_id, user_id,
-        stalls ( stall_number, package, exhibitions ( name, venue, start_date ) ),
+        stalls ( stall_number, package, price, category, exhibitions ( name, venue, start_date ) ),
         users ( name, email )
       `)
       .eq("id", payment.reservation_id)
@@ -217,6 +218,30 @@ export async function paymentWebhook(req: Request, res: Response): Promise<void>
       const stall = (reservation as any).stalls;
       const exh = stall?.exhibitions;
       const vendor = (reservation as any).users;
+      const stallPrice: number = stall?.price ?? amountNaira;
+      const tier = stallPrice >= 250000 ? "Tier 1" : "Tier 2";
+
+      const formattedDate = (() => {
+        try {
+          return new Date(exh?.start_date).toLocaleDateString("en-NG", {
+            weekday: "long", year: "numeric", month: "long", day: "numeric",
+          });
+        } catch {
+          return exh?.start_date ?? "TBD";
+        }
+      })();
+
+      const ticketPDF = await safeGenerateTicketPDF({
+        vendorName: vendor?.name ?? vendor?.email ?? "Vendor",
+        stallNumber: stall?.stall_number ?? "?",
+        category: stall?.category ?? "N/A",
+        tier,
+        price: stallPrice,
+        venue: exh?.venue ?? "TBD",
+        date: formattedDate,
+        code: reservation.id,
+        checkin: "8:00 AM",
+      });
 
       if (vendor?.email) {
         await sendConfirmationEmail({
@@ -230,6 +255,7 @@ export async function paymentWebhook(req: Request, res: Response): Promise<void>
           venue: exh?.venue ?? "TBD",
           date: exh?.start_date ?? "TBD",
           organizerContact: "+234 906 360 4449",
+          ticketPDF,
         });
       }
     }
