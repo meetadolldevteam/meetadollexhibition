@@ -12,22 +12,59 @@ const LABEL_GREY = "#6b7280";
 const TEXT_DARK = "#111111";
 const GRID_BORDER = "#e5e7eb";
 
-function getLogoBuffer(): Buffer | null {
+// ── Logo cached once at module load — no repeated disk reads ─────────────────
+function loadLogoBuffer(): Buffer | null {
   try {
-    const logoPath = path.join(__dirname, "meetadoll-logo.png");
-    if (fs.existsSync(logoPath)) {
-      return fs.readFileSync(logoPath);
-    }
+    const distPath = path.join(__dirname, "meetadoll-logo.png");
+    if (fs.existsSync(distPath)) return fs.readFileSync(distPath);
     const srcPath = path.join(__dirname, "../assets/meetadoll-logo.png");
-    if (fs.existsSync(srcPath)) {
-      return fs.readFileSync(srcPath);
-    }
+    if (fs.existsSync(srcPath)) return fs.readFileSync(srcPath);
     return null;
   } catch {
     return null;
   }
 }
+const LOGO_BUFFER: Buffer | null = loadLogoBuffer();
 
+// ── PDF cache — confirmed tickets never change, serve from memory ─────────────
+const pdfCache = new Map<string, Buffer>();
+const PDF_CACHE_MAX = 500; // evict oldest when full
+
+function cacheGet(reservationId: string): Buffer | null {
+  return pdfCache.get(reservationId) ?? null;
+}
+
+function cacheSet(reservationId: string, pdf: Buffer): void {
+  if (pdfCache.size >= PDF_CACHE_MAX) {
+    const firstKey = pdfCache.keys().next().value;
+    if (firstKey !== undefined) pdfCache.delete(firstKey);
+  }
+  pdfCache.set(reservationId, pdf);
+}
+
+// ── Concurrency limiter — cap simultaneous CPU-heavy PDF renders ──────────────
+const MAX_CONCURRENT = 8;
+let activeGenerations = 0;
+const waitQueue: Array<() => void> = [];
+
+function acquireSlot(): Promise<void> {
+  if (activeGenerations < MAX_CONCURRENT) {
+    activeGenerations++;
+    return Promise.resolve();
+  }
+  return new Promise((resolve) => waitQueue.push(resolve));
+}
+
+function releaseSlot(): void {
+  const next = waitQueue.shift();
+  if (next) {
+    next();
+  } else {
+    activeGenerations--;
+  }
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
 function formatPrice(price: number): string {
   return `\u20A6${price.toLocaleString("en-NG")}`;
 }
@@ -44,7 +81,8 @@ export interface TicketData {
   checkin: string;
 }
 
-export async function generateTicketPDF(reservation: TicketData): Promise<Buffer> {
+// ── Core generator — runs inside a concurrency slot ───────────────────────────
+async function renderTicketPDF(reservation: TicketData): Promise<Buffer> {
   const W = 600;
   const H = 550;
   const B = 4;
@@ -59,14 +97,11 @@ export async function generateTicketPDF(reservation: TicketData): Promise<Buffer
   const colW = (W - B * 2) / 2;
   const gridRowH = detailsH / 3;
 
-  const qrData = reservation.code;
-  const qrBuffer = await QRCode.toBuffer(qrData, {
+  const qrBuffer = await QRCode.toBuffer(reservation.code, {
     width: 90,
     margin: 1,
     color: { dark: BLACK, light: FAINT_GREY },
   });
-
-  const logoBuffer = getLogoBuffer();
 
   return new Promise<Buffer>((resolve, reject) => {
     const doc = new PDFDocument({ size: [W, H], margin: 0, autoFirstPage: true });
@@ -77,14 +112,14 @@ export async function generateTicketPDF(reservation: TicketData): Promise<Buffer
 
     let y = B;
 
-    // ── Section 1: Black header with logo ────────────────────────────────────
+    // ── Section 1: Black header with logo ─────────────────────────────────────
     doc.rect(B, y, W - B * 2, headerH).fill(BLACK);
 
-    if (logoBuffer) {
+    if (LOGO_BUFFER) {
       const logoSize = 150;
       const logoX = (W - logoSize) / 2;
       const logoY = y + (headerH - logoSize) / 2;
-      doc.image(logoBuffer, logoX, logoY, { width: logoSize, height: logoSize });
+      doc.image(LOGO_BUFFER, logoX, logoY, { width: logoSize, height: logoSize });
     } else {
       doc
         .fillColor(WHITE)
@@ -93,12 +128,13 @@ export async function generateTicketPDF(reservation: TicketData): Promise<Buffer
         .text("MEETADOLL EXHIBITION", B, y + (headerH - 22) / 2, {
           width: W - B * 2,
           align: "center",
+          lineBreak: false,
         });
     }
 
     y += headerH;
 
-    // ── Section 2: Title (VENDOR STALL PASS + vendor name) ───────────────────
+    // ── Section 2: Vendor name ────────────────────────────────────────────────
     doc.rect(B, y, W - B * 2, titleH).fill(WHITE);
 
     doc
@@ -109,6 +145,7 @@ export async function generateTicketPDF(reservation: TicketData): Promise<Buffer
         width: W - B * 2,
         align: "center",
         characterSpacing: 3,
+        lineBreak: false,
       });
 
     const vendorFontSize = reservation.vendorName.length > 22 ? 20 : 26;
@@ -119,6 +156,7 @@ export async function generateTicketPDF(reservation: TicketData): Promise<Buffer
       .text(reservation.vendorName, B, y + 24, {
         width: W - B * 2,
         align: "center",
+        lineBreak: false,
       });
 
     y += titleH;
@@ -133,6 +171,7 @@ export async function generateTicketPDF(reservation: TicketData): Promise<Buffer
       .text(`V${reservation.stallNumber}`, B, y + 6, {
         width: W - B * 2,
         align: "center",
+        lineBreak: false,
       });
 
     y += stallH;
@@ -219,6 +258,7 @@ export async function generateTicketPDF(reservation: TicketData): Promise<Buffer
         width: W - B * 2,
         align: "center",
         characterSpacing: 2,
+        lineBreak: false,
       });
 
     const qrSize = 72;
@@ -233,6 +273,7 @@ export async function generateTicketPDF(reservation: TicketData): Promise<Buffer
       .text(reservation.code, B, qrY + qrSize + 6, {
         width: W - B * 2,
         align: "center",
+        lineBreak: false,
       });
 
     doc
@@ -245,7 +286,7 @@ export async function generateTicketPDF(reservation: TicketData): Promise<Buffer
         lineBreak: false,
       });
 
-    // ── Outer maroon border drawn last so it sits on top of all sections ──────
+    // ── Border drawn last — sits on top of all sections ───────────────────────
     doc
       .rect(B / 2, B / 2, W - B, H - B)
       .lineWidth(B)
@@ -256,11 +297,35 @@ export async function generateTicketPDF(reservation: TicketData): Promise<Buffer
   });
 }
 
+// ── Public API ────────────────────────────────────────────────────────────────
+
+export async function generateTicketPDF(reservation: TicketData): Promise<Buffer> {
+  // Check cache first — skip generation entirely for repeat downloads
+  const cached = cacheGet(reservation.code);
+  if (cached) {
+    logger.debug({ code: reservation.code }, "Ticket served from cache");
+    return cached;
+  }
+
+  await acquireSlot();
+  try {
+    const pdf = await renderTicketPDF(reservation);
+    cacheSet(reservation.code, pdf);
+    return pdf;
+  } finally {
+    releaseSlot();
+  }
+}
+
 export async function safeGenerateTicketPDF(reservation: TicketData): Promise<Buffer | null> {
   try {
     return await generateTicketPDF(reservation);
   } catch (err) {
-    logger.error({ err }, "Failed to generate ticket PDF");
+    logger.error({ err, code: reservation.code }, "Failed to generate ticket PDF");
     return null;
   }
+}
+
+export function invalidateTicketCache(reservationId: string): void {
+  pdfCache.delete(reservationId);
 }
