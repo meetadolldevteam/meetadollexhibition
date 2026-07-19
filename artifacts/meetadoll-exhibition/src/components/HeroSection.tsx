@@ -41,14 +41,14 @@ const HeroSection = () => {
 
   return (
     <section className="relative min-h-screen flex flex-col items-center justify-center overflow-hidden pt-20">
-      <img
-        src={logo.url}
-        alt="Meetadoll Exhibition"
-        className="absolute top-3 left-4 sm:left-6 md:left-10 w-24 sm:w-32 md:w-40 h-auto z-20 mix-blend-multiply"
-      />
-
       <div className="relative z-10 w-full flex flex-col items-center justify-center gap-10 md:gap-16">
-        <MarqueeRow text="MEETADOLL" direction="left" />
+        <ScrollReveal>
+          <img
+            src={logo.url}
+            alt="Meetadoll Exhibition"
+            className="w-32 sm:w-44 md:w-56 h-auto mix-blend-multiply"
+          />
+        </ScrollReveal>
 
         <ScrollReveal>
           <div className="flex items-center gap-2 text-muted-foreground text-sm px-4 text-center">
@@ -81,7 +81,7 @@ const HeroSection = () => {
           </Button>
         </ScrollReveal>
 
-        <MarqueeRow text="EXHIBITION" direction="right" />
+        <MarqueeRow text="HOMECOMING" direction="right" />
       </div>
 
       <StallPickerModal open={pickerOpen} onOpenChange={setPickerOpen} />
