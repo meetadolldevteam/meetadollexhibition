@@ -47,7 +47,7 @@ const AboutSection = () => (
         {[
           { label: "Dates", value: DATES_DISPLAY },
           { label: "Venue", value: VENUE },
-          { label: "Vendor stalls", value: "100 slots" },
+          { label: "Vendor stalls", value: "130 slots" },
         ].map((item) => (
           <div key={item.label} className="bg-secondary border border-border rounded-2xl p-6 text-center shadow-sm hover:shadow-md hover:border-primary/40 transition-all">
             <p className="text-xs uppercase tracking-[0.25em] text-primary font-semibold mb-2">{item.label}</p>

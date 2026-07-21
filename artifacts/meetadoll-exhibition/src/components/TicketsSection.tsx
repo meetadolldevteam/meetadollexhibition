@@ -47,8 +47,8 @@ const TicketsSection = () => {
       .catch(() => {});
   }, []);
 
-  const tier1Total = stalls.filter((s) => s.price === 250000).length || 59;
-  const tier2Total = stalls.filter((s) => s.price === 210000).length || 41;
+  const tier1Total = stalls.filter((s) => s.price === 250000).length || 75;
+  const tier2Total = stalls.filter((s) => s.price === 210000).length || 55;
   const tier1Available = stalls.length > 0 ? stalls.filter((s) => s.price === 250000 && s.status === "available").length : tier1Total;
   const tier2Available = stalls.length > 0 ? stalls.filter((s) => s.price === 210000 && s.status === "available").length : tier2Total;
 
@@ -76,9 +76,9 @@ const TicketsSection = () => {
       <div className="max-w-4xl mx-auto">
         <ScrollReveal>
           <p className="text-xs uppercase tracking-[0.25em] text-primary font-medium mb-3">Exhibit with us</p>
-          <h2 className="text-3xl sm:text-4xl md:text-5xl font-display font-bold mb-4 text-background">Only 100 Vendor Stalls Available</h2>
+          <h2 className="text-3xl sm:text-4xl md:text-5xl font-display font-bold mb-4 text-background">Only 130 Vendor Stalls Available</h2>
           <p className="text-background/70 max-w-2xl mb-10 md:mb-12">
-            Secure your spot before they're gone. 100 stalls total across two price tiers.
+            Secure your spot before they're gone. 130 stalls total across two price tiers.
           </p>
         </ScrollReveal>
 
@@ -91,8 +91,7 @@ const TicketsSection = () => {
                 <p className="text-xs text-muted-foreground uppercase tracking-widest">Tier 1 Stalls</p>
               </div>
               <p className="text-xs text-muted-foreground mb-2 leading-relaxed">
-                Fashion &amp; Others: V1–V25, V98–V100<br />
-                Food: V26–V39, V81–V97
+                Fashion &amp; Others stalls · Prime floor placement
               </p>
               <p className="text-2xl md:text-3xl font-display font-bold mb-4" style={{ color: TIER1_COLOR }}>₦250,000</p>
 
@@ -134,7 +133,7 @@ const TicketsSection = () => {
                 <p className="text-xs text-muted-foreground uppercase tracking-widest">Tier 2 Stalls</p>
               </div>
               <p className="text-xs text-muted-foreground mb-2 leading-relaxed">
-                Food only: V40–V80
+                Food stalls · Standard floor placement
               </p>
               <p className="text-2xl md:text-3xl font-display font-bold mb-4" style={{ color: TIER2_COLOR }}>₦210,000</p>
 
