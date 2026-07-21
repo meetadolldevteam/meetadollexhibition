@@ -81,7 +81,7 @@ const HeroSection = () => {
           </Button>
         </ScrollReveal>
 
-        <MarqueeRow text="HOMECOMING" direction="right" />
+        <MarqueeRow text="HOMECOMING" direction="left" />
       </div>
 
       <StallPickerModal open={pickerOpen} onOpenChange={setPickerOpen} />
