@@ -23,9 +23,102 @@ export default function TermsPage() {
       </header>
 
       <main className="max-w-3xl mx-auto px-5 py-12">
+
+        {/* ── VENDOR TERMS ── */}
+        <div className="mb-10">
+          <p className="text-xs uppercase tracking-widest text-primary font-medium mb-2">Event Rules</p>
+          <h1 className="font-display text-4xl font-bold mb-3">Vendor Terms &amp; Conditions</h1>
+          <p className="text-muted-foreground text-sm mb-1 font-semibold text-foreground">Material Exhibition – 5th Edition: The Homecoming</p>
+          <p className="text-muted-foreground text-sm">By making payment and confirming participation, you agree to abide by these terms.</p>
+        </div>
+
+        <Section title="1. Payment Terms">
+          <p><strong className="text-foreground">All payments MUST be made only on the website and not to any individual.</strong></p>
+          <p>Stall fees are non-refundable once payment has been made.</p>
+          <p>Vendors are responsible for settling all payments before the event date.</p>
+        </Section>
+
+        <Section title="2. Vendor Entitlements">
+          <p>Each registered vendor is entitled to:</p>
+          <ul className="list-disc pl-5 space-y-1">
+            <li>One (1) table</li>
+            <li>Two (2) chairs</li>
+          </ul>
+          <p>Any additional furniture or equipment required is the sole responsibility of the vendor.</p>
+        </Section>
+
+        <Section title="3. Assigned Locations">
+          <p>Vendors must remain at their assigned stalls throughout the event.</p>
+          <p>Swapping or relocating to another stall without prior approval from the organizers is strictly prohibited.</p>
+        </Section>
+
+        <Section title="4. Stall Sharing">
+          <p>Vendors are allowed to share stalls <strong className="text-foreground">ON THE CONDITION THAT ONLY one vendor will be officially recognized and registered</strong> by the organizers.</p>
+          <ul className="list-disc pl-5 space-y-1">
+            <li>Only vendors selling edible products may share with other edible vendors.</li>
+            <li>Only vendors selling non-edible products may share with other non-edible vendors.</li>
+            <li>Vendors selling edible products and vendors selling non-edible products are not permitted to share the same stall.</li>
+          </ul>
+        </Section>
+
+        <Section title="5. Electricity">
+          <p>A central power source will be provided for vendors.</p>
+          <p>However, food vendors or vendors using high-voltage electrical equipment must provide their own source of electricity.</p>
+          <p>All vendors are advised to come with their own extension cables and electrical wires.</p>
+          <p>The organizers will not be responsible for any damage to electrical equipment or appliances.</p>
+        </Section>
+
+        <Section title="6. Restrictions">
+          <p>Vendors are not permitted to block neighboring stalls with their goods or any other items, as this will be heavily frowned upon.</p>
+          <p>Items such as banners, mannequins, tables, display stands, or any other promotional materials must be properly managed within the vendor's allocated space without causing inconvenience to neighboring vendors.</p>
+          <p>Failure to comply with this rule may result in disciplinary action or other consequences as determined by the organizers.</p>
+        </Section>
+
+        <Section title="7. Product Restrictions">
+          <p>Vendors must strictly sell products or services within the category stated during registration. Selling unapproved products or products outside the approved category will not be permitted.</p>
+        </Section>
+
+        <Section title="8. Prohibited Sales">
+          <p>Vendors are not permitted to sell products or services prohibited by the organizers or the laws of the Federal Republic of Nigeria.</p>
+        </Section>
+
+        <Section title="9. Set-Up and Breakdown">
+          <p>Vendors must complete setup before the official opening time communicated by the organizers.</p>
+          <p>Late arrivals may not be allowed to set up once the exhibition has commenced.</p>
+        </Section>
+
+        <Section title="10. Cleanliness and Maintenance">
+          <p>Vendors are responsible for maintaining cleanliness within their allocated spaces throughout the exhibition.</p>
+          <p>Waste must be disposed of properly.</p>
+          <p>Stalls should be left clean and in the same condition in which they were allocated.</p>
+        </Section>
+
+        <Section title="11. Conduct and Professionalism">
+          <p>Vendors are expected to conduct themselves professionally throughout the exhibition.</p>
+          <p>Harassment, abusive language, discrimination, misconduct, or disrespect toward attendees, fellow vendors, or event staff will not be tolerated and may result in immediate removal from the event without a refund.</p>
+        </Section>
+
+        <Section title="12. Product Liability">
+          <p>Each vendor is solely responsible for the products and services they display or sell during the exhibition.</p>
+          <p>The organizers shall not be liable for any claims, damages, injuries, losses, or legal issues arising from a vendor's products or services.</p>
+        </Section>
+
+        <Section title="13. Health and Safety Compliance">
+          <p>All vendors must comply with all health, safety, and event regulations issued by the organizers before or during the exhibition.</p>
+        </Section>
+
+        <Section title="14. Security">
+          <p>Security personnel will be present throughout the venue during the two-day exhibition to help safeguard vendors' goods.</p>
+          <p>However, vendors are advised to properly secure and pack their goods before leaving the venue each day. The organizers will not be held liable for any loss, theft, or damage to vendors' goods or property.</p>
+        </Section>
+
+        {/* ── DIVIDER ── */}
+        <div className="my-14 border-t-2 border-border" />
+
+        {/* ── PLATFORM TERMS ── */}
         <div className="mb-10">
           <p className="text-xs uppercase tracking-widest text-primary font-medium mb-2">Legal</p>
-          <h1 className="font-display text-4xl font-bold mb-3">Terms &amp; Conditions</h1>
+          <h2 className="font-display text-3xl font-bold mb-3">Platform Terms &amp; Conditions</h2>
           <p className="text-muted-foreground text-sm">Last Updated: July 8, 2026 &nbsp;·&nbsp; Platform: Meetadoll Exhibition &nbsp;·&nbsp; Legal Owner: Hauwa Manga &nbsp;·&nbsp; Country: Nigeria</p>
         </div>
 
