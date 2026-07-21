@@ -291,13 +291,13 @@ export default function StallPickerModal({ open, onOpenChange, defaultTierFilter
                 {showFloorPlan && (
                   <div
                     className="rounded-xl border border-border overflow-auto"
-                    style={{ maxHeight: "55vh", touchAction: "pan-x pan-y pinch-zoom" }}
+                    style={{ touchAction: "pinch-zoom" }}
                   >
                     <img
                       src="/images/stall-guide.png"
                       alt="Stall layout floor plan"
                       className="block"
-                      style={{ minWidth: "700px", width: "100%", height: "auto" }}
+                      style={{ width: "100%", maxWidth: "100%", height: "auto", objectFit: "contain" }}
                       loading="lazy"
                     />
                   </div>
