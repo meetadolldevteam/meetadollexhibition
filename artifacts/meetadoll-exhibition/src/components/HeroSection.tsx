@@ -46,7 +46,7 @@ const HeroSection = () => {
           <img
             src={logo.url}
             alt="Meetadoll Exhibition"
-            className="w-48 sm:w-64 md:w-80 h-auto mix-blend-multiply"
+            className="w-[85vw] md:w-[60vw] max-w-3xl h-auto mix-blend-multiply"
           />
         </ScrollReveal>
 
