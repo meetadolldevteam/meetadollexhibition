@@ -291,13 +291,13 @@ export default function StallPickerModal({ open, onOpenChange, defaultTierFilter
                 {showFloorPlan && (
                   <div
                     className="rounded-xl border border-border overflow-auto"
-                    style={{ touchAction: "pinch-zoom" }}
+                    style={{ touchAction: "pan-x pan-y pinch-zoom", WebkitOverflowScrolling: "touch" } as React.CSSProperties}
                   >
                     <img
                       src="/images/stall-guide.png"
                       alt="Stall layout floor plan"
                       className="block"
-                      style={{ width: "100%", maxWidth: "100%", height: "auto", objectFit: "contain" }}
+                      style={{ minWidth: "900px", width: "100%", height: "auto" }}
                       loading="lazy"
                     />
                   </div>
@@ -323,14 +323,14 @@ export default function StallPickerModal({ open, onOpenChange, defaultTierFilter
                     const color = tierColor(stall.price);
                     const catShort = stall.category === "Food" ? "Food" : "Fashion & Others";
 
-                    let cellClass = "aspect-square rounded-md text-center border-2 transition-all flex flex-col items-center justify-center cursor-pointer select-none ";
+                    let cellClass = "aspect-square rounded-md text-center border-2 transition-all duration-150 flex flex-col items-center justify-center cursor-pointer select-none ";
 
                     if (isTaken) {
                       cellClass += "bg-zinc-300 border-zinc-300 text-zinc-500 cursor-not-allowed opacity-60";
                     } else if (isRestricted) {
                       cellClass += "bg-zinc-50 border-zinc-200 text-zinc-300 cursor-not-allowed opacity-40";
                     } else if (isSelected) {
-                      cellClass += "text-white scale-105 shadow-md";
+                      cellClass += "text-white scale-125 shadow-xl z-10 relative ring-2 ring-white ring-offset-1";
                     } else {
                       cellClass += "bg-white text-zinc-800 hover:scale-105 hover:shadow-sm";
                     }
@@ -350,8 +350,17 @@ export default function StallPickerModal({ open, onOpenChange, defaultTierFilter
                         }
                         title={isRestricted ? `Not available for your vendor type (${user.vendor_category})` : `V${n} - ${stall.category} - ₦${stall.price.toLocaleString()}`}
                       >
-                        <span className="text-[10px] font-bold leading-tight">V{n}</span>
-                        <span className="text-[7px] leading-tight opacity-70">{catShort}</span>
+                        {isSelected ? (
+                          <>
+                            <Check className="w-3 h-3 mb-0.5" />
+                            <span className="text-[9px] font-bold leading-tight">V{n}</span>
+                          </>
+                        ) : (
+                          <>
+                            <span className="text-[10px] font-bold leading-tight">V{n}</span>
+                            <span className="text-[7px] leading-tight opacity-70">{catShort}</span>
+                          </>
+                        )}
                       </button>
                     );
                   })}
