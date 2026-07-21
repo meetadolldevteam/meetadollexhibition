@@ -1,7 +1,7 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { useEffect, useState } from "react";
-import { Check, Loader2 } from "lucide-react";
+import { Check, Loader2, Map as MapIcon, ChevronDown, ChevronUp } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { api, ApiError } from "@/lib/apiClient";
 import { useNavigate } from "react-router-dom";
@@ -63,6 +63,7 @@ export default function StallPickerModal({ open, onOpenChange, defaultTierFilter
   const [held, setHeld] = useState<HeldInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [stallFilter, setStallFilter] = useState<StallFilter>("all");
+  const [showFloorPlan, setShowFloorPlan] = useState(false);
 
   useEffect(() => {
     if (open) {
@@ -277,13 +278,30 @@ export default function StallPickerModal({ open, onOpenChange, defaultTierFilter
 
             {/* Stall grid */}
             <div className="overflow-y-auto flex-1 -mx-2 px-2">
-              <div className="mb-3 rounded-xl overflow-hidden border border-border">
-                <img
-                  src="/images/stall-guide.jpg"
-                  alt="Stall layout guide showing tier locations, categories and prices"
-                  className="w-full h-auto block"
-                  loading="lazy"
-                />
+              {/* Collapsible floor plan */}
+              <div className="mb-3">
+                <button
+                  onClick={() => setShowFloorPlan((v) => !v)}
+                  className="flex items-center gap-2 text-xs font-medium text-primary hover:opacity-80 transition-opacity mb-2"
+                >
+                  <MapIcon className="w-3.5 h-3.5 shrink-0" />
+                  {showFloorPlan ? "Hide floor plan" : "View floor plan"}
+                  {showFloorPlan ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                </button>
+                {showFloorPlan && (
+                  <div
+                    className="rounded-xl border border-border overflow-auto"
+                    style={{ maxHeight: "55vh", touchAction: "pan-x pan-y pinch-zoom" }}
+                  >
+                    <img
+                      src="/images/stall-guide.png"
+                      alt="Stall layout floor plan"
+                      className="block"
+                      style={{ minWidth: "700px", width: "100%", height: "auto" }}
+                      loading="lazy"
+                    />
+                  </div>
+                )}
               </div>
 
               {loadingStalls ? (
