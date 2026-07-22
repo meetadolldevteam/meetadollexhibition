@@ -88,8 +88,11 @@ export default function ActivityLogPanel() {
                     {Object.entries(a.details).map(([k, v]) => `${k}: ${v}`).join(" · ")}
                   </p>
                 )}
+                <p className="text-xs text-muted-foreground mt-1 sm:hidden">
+                  {new Date(a.created_at).toLocaleString()}
+                </p>
               </div>
-              <span className="text-xs text-muted-foreground shrink-0 whitespace-nowrap">
+              <span className="hidden sm:block text-xs text-muted-foreground shrink-0 whitespace-nowrap">
                 {new Date(a.created_at).toLocaleString()}
               </span>
             </div>

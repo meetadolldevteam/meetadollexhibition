@@ -62,7 +62,7 @@ export default function CreateAdminPanel() {
   return (
     <div className="max-w-2xl space-y-6">
       {/* Role explainer */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {Object.entries(ROLE_DESC).map(([role, desc]) => (
           <div key={role} className="rounded-xl border border-border p-4">
             <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium mb-2 ${ROLE_CLS[role]}`}>
@@ -85,31 +85,52 @@ export default function CreateAdminPanel() {
         {loading ? (
           <div className="h-24 rounded-xl bg-secondary/40 animate-pulse" />
         ) : (
-          <div className="rounded-xl border border-border overflow-hidden">
-            <table className="w-full text-sm">
-              <thead className="bg-secondary/50">
-                <tr>
-                  {["Name", "Email", "Role", "Added"].map((h) => (
-                    <th key={h} className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wide">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {admins.map((a) => (
-                  <tr key={a.id} className="hover:bg-secondary/20">
-                    <td className="px-4 py-3 font-medium">{a.name}</td>
-                    <td className="px-4 py-3 text-muted-foreground text-xs">{a.email}</td>
-                    <td className="px-4 py-3">
-                      <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${ROLE_CLS[a.role] ?? ""}`}>
-                        {a.role.replace("_", " ")}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-xs text-muted-foreground">{new Date(a.created_at).toLocaleDateString()}</td>
+          <>
+            {/* Desktop table */}
+            <div className="hidden sm:block rounded-xl border border-border overflow-hidden">
+              <table className="w-full text-sm">
+                <thead className="bg-secondary/50">
+                  <tr>
+                    {["Name", "Email", "Role", "Added"].map((h) => (
+                      <th key={h} className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wide">{h}</th>
+                    ))}
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {admins.map((a) => (
+                    <tr key={a.id} className="hover:bg-secondary/20">
+                      <td className="px-4 py-3 font-medium">{a.name}</td>
+                      <td className="px-4 py-3 text-muted-foreground text-xs">{a.email}</td>
+                      <td className="px-4 py-3">
+                        <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${ROLE_CLS[a.role] ?? ""}`}>
+                          {a.role.replace("_", " ")}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-xs text-muted-foreground">{new Date(a.created_at).toLocaleDateString()}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile cards */}
+            <div className="sm:hidden space-y-3">
+              {admins.map((a) => (
+                <div key={a.id} className="rounded-xl border border-border bg-card p-4">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="font-semibold text-sm truncate">{a.name}</p>
+                      <p className="text-xs text-muted-foreground truncate">{a.email}</p>
+                    </div>
+                    <span className={`flex-shrink-0 inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${ROLE_CLS[a.role] ?? ""}`}>
+                      {a.role.replace("_", " ")}
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-2">Added {new Date(a.created_at).toLocaleDateString()}</p>
+                </div>
+              ))}
+            </div>
+          </>
         )}
       </div>
 
@@ -159,7 +180,7 @@ export default function CreateAdminPanel() {
               </select>
             </div>
           </div>
-          <div className="flex gap-3">
+          <div className="flex flex-wrap gap-3">
             <Button onClick={create} disabled={creating} className="gap-2">
               {creating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
               {creating ? "Creating…" : "Create Account"}

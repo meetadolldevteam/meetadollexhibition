@@ -61,7 +61,8 @@ export default function VendorsPanel() {
 
       <p className="text-xs text-muted-foreground">{filtered.length} of {vendors.length} vendors</p>
 
-      <div className="rounded-xl border border-border overflow-x-auto">
+      {/* ── Desktop table (md+) ── */}
+      <div className="hidden md:block rounded-xl border border-border overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-secondary/50">
             <tr>
@@ -101,10 +102,7 @@ export default function VendorsPanel() {
                   </td>
                   <td className="px-4 py-3 text-xs text-muted-foreground">{new Date(v.created_at).toLocaleDateString()}</td>
                   <td className="px-4 py-3">
-                    <button
-                      onClick={() => setSelected(v)}
-                      className="text-xs text-primary hover:underline"
-                    >
+                    <button onClick={() => setSelected(v)} className="text-xs text-primary hover:underline">
                       View
                     </button>
                   </td>
@@ -113,6 +111,52 @@ export default function VendorsPanel() {
             })}
           </tbody>
         </table>
+      </div>
+
+      {/* ── Mobile cards (< md) ── */}
+      <div className="md:hidden space-y-3">
+        {loading ? (
+          <div className="py-8 text-center text-muted-foreground text-sm">Loading…</div>
+        ) : filtered.length === 0 ? (
+          <div className="py-8 text-center text-muted-foreground text-sm">No vendors found.</div>
+        ) : filtered.map((v) => {
+          const activeRes = v.reservations?.find((r) => ["confirmed", "held"].includes(r.status));
+          return (
+            <div key={v.id} className="rounded-xl border border-border bg-card p-4 space-y-3">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="font-semibold text-sm leading-tight truncate">{v.name}</p>
+                  <p className="text-xs text-muted-foreground truncate">{v.email}</p>
+                  {v.phone && <p className="text-xs text-muted-foreground">{v.phone}</p>}
+                </div>
+                <button onClick={() => setSelected(v)} className="flex-shrink-0 text-xs text-primary hover:underline font-medium">
+                  View
+                </button>
+              </div>
+
+              <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm">
+                <div>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide">Stall</p>
+                  {activeRes ? (
+                    <>
+                      <p className="font-semibold">#{activeRes.stalls?.stall_number ?? "?"}</p>
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_CLS[activeRes.status] ?? ""}`}>
+                        {activeRes.status}
+                      </span>
+                      {activeRes.checked_in_at && <p className="text-xs text-green-600 mt-0.5">✓ Checked in</p>}
+                    </>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">No reservation</p>
+                  )}
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide">Registered</p>
+                  <p className="text-xs">{new Date(v.created_at).toLocaleDateString()}</p>
+                </div>
+              </div>
+            </div>
+          );
+        })}
       </div>
 
       {/* Vendor detail modal */}
