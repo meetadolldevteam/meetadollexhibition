@@ -1,7 +1,7 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { useEffect, useRef, useState } from "react";
-import { Check, Loader2, Map as MapIcon, ChevronDown, ChevronUp } from "lucide-react";
+import { Loader2, Map as MapIcon, ChevronDown, ChevronUp } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { api, ApiError } from "@/lib/apiClient";
 import { useNavigate } from "react-router-dom";
@@ -32,6 +32,10 @@ const TIER2_PRICE = 210000;
 
 function tierColor(price: number): string {
   return price === TIER2_PRICE ? TIER2_COLOR : TIER1_COLOR;
+}
+
+function tierLabel(price: number): string {
+  return price === TIER2_PRICE ? "Tier 2" : "Tier 1";
 }
 
 function canVendorBookStall(vendorCategory: string | null | undefined, stallCategory: string | null | undefined): boolean {
@@ -118,27 +122,14 @@ function FloorPlanImage() {
   }, []);
 
   return (
-    <div
-      style={{
-        overflow: "hidden",
-        borderRadius: "0.75rem",
-        border: "1px solid var(--border)",
-        lineHeight: 0,
-      }}
-    >
+    <div style={{ overflow: "hidden", borderRadius: "0.75rem", border: "1px solid var(--border)", lineHeight: 0 }}>
       <img
         ref={imgRef}
         src="/images/floorplan.jpg"
         alt="Stall layout floor plan"
         draggable={false}
         loading="lazy"
-        style={{
-          display: "block",
-          width: "100%",
-          height: "auto",
-          userSelect: "none",
-          WebkitUserSelect: "none",
-        }}
+        style={{ display: "block", width: "100%", height: "auto", userSelect: "none", WebkitUserSelect: "none" }}
       />
     </div>
   );
@@ -156,7 +147,6 @@ export default function StallPickerModal({ open, onOpenChange, defaultTierFilter
   const [step, setStep] = useState<Step>("picking");
   const [error, setError] = useState<string | null>(null);
   const [stallFilter, setStallFilter] = useState<StallFilter>("all");
-  // Floor plan starts expanded
   const [showFloorPlan, setShowFloorPlan] = useState(true);
 
   useEffect(() => {
@@ -194,7 +184,6 @@ export default function StallPickerModal({ open, onOpenChange, defaultTierFilter
   const reset = () => { setSelected(null); setStep("picking"); setError(null); };
   const handleClose = (v: boolean) => { onOpenChange(v); if (!v) reset(); };
 
-  // Single action: reserve the stall and redirect straight to Paystack
   const handleReservePay = async () => {
     if (!selected || !user) return;
     setError(null);
@@ -286,13 +275,26 @@ export default function StallPickerModal({ open, onOpenChange, defaultTierFilter
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="bg-background border-border max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
+      <DialogContent className="bg-background border-border max-w-2xl max-h-[90vh] overflow-hidden flex flex-col relative">
+
+        {/* ── Keyframe styles ─────────────────────────────────────────────── */}
+        <style>{`
+          @keyframes stall-confirm-in {
+            from { opacity: 0; transform: scale(0.88); }
+            to   { opacity: 1; transform: scale(1); }
+          }
+          @keyframes stall-overlay-in {
+            from { opacity: 0; }
+            to   { opacity: 1; }
+          }
+        `}</style>
+
         <DialogHeader>
           <DialogTitle className="font-display text-2xl">Pick your stall</DialogTitle>
           <DialogDescription>
             {allowedCat
               ? `Showing ${allowedCat} stalls for your vendor type.`
-              : "Select an available stall, then click Reserve & Pay."}
+              : "Select an available stall to confirm and pay."}
           </DialogDescription>
         </DialogHeader>
 
@@ -454,20 +456,6 @@ export default function StallPickerModal({ open, onOpenChange, defaultTierFilter
                         outline: "none",
                       }}
                     >
-                      {isSelected && (
-                        <Check
-                          style={{
-                            position: "absolute",
-                            top: "2px",
-                            right: "2px",
-                            width: "9px",
-                            height: "9px",
-                            color: "#ffffff",
-                            strokeWidth: 3,
-                            flexShrink: 0,
-                          }}
-                        />
-                      )}
                       <span style={{ fontSize: "10px", fontWeight: 700, lineHeight: 1.1, color: "inherit" }}>V{n}</span>
                       {!isSelected && (
                         <span style={{ fontSize: "6px", lineHeight: 1.1, opacity: 0.65, color: "inherit" }}>{catShort}</span>
@@ -478,34 +466,116 @@ export default function StallPickerModal({ open, onOpenChange, defaultTierFilter
               </div>
             )}
           </div>
-
-          {/* Footer action bar */}
-          <div className="flex items-center justify-between pt-3 border-t border-border gap-3">
-            <div className="text-sm min-w-0">
-              {selected ? (
-                <div className="flex flex-col">
-                  <span className="flex items-center gap-1.5 font-medium" style={{ color: tierColor(selected.price) }}>
-                    <Check className="w-4 h-4 shrink-0" /> V{selected.stall_number} - {selected.category}
-                  </span>
-                  <span className="text-xs text-muted-foreground font-semibold">
-                    ₦{selected.price.toLocaleString()}
-                  </span>
-                </div>
-              ) : (
-                <span className="text-muted-foreground">No stall selected</span>
-              )}
-            </div>
-            <Button
-              onClick={handleReservePay}
-              disabled={!selected || step === "paying"}
-              className="rounded-full shrink-0"
-            >
-              {step === "paying"
-                ? <><Loader2 className="w-4 h-4 animate-spin mr-2" />Redirecting to payment…</>
-                : "Reserve & Pay"}
-            </Button>
-          </div>
         </>
+
+        {/* ── Confirmation popup overlay ────────────────────────────────────── */}
+        {selected && (
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              backgroundColor: "rgba(0,0,0,0.55)",
+              borderRadius: "inherit",
+              zIndex: 50,
+              animation: "stall-overlay-in 0.18s ease both",
+            }}
+          >
+            <div
+              style={{
+                background: "#ffffff",
+                borderRadius: "1rem",
+                padding: "1.75rem 1.5rem 1.5rem",
+                width: "min(300px, calc(100% - 2.5rem))",
+                boxShadow: "0 8px 40px rgba(0,0,0,0.22)",
+                animation: "stall-confirm-in 0.18s ease both",
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: "0.25rem",
+                textAlign: "center",
+              }}
+            >
+              {/* Stall number */}
+              <p style={{
+                fontSize: "2.5rem",
+                fontWeight: 800,
+                lineHeight: 1,
+                color: tierColor(selected.price),
+                letterSpacing: "-0.02em",
+                marginBottom: "0.25rem",
+              }}>
+                V{selected.stall_number}
+              </p>
+
+              {/* Category · Tier */}
+              <p style={{ fontSize: "0.8125rem", color: "#52525b", fontWeight: 500, marginBottom: "0.1rem" }}>
+                {selected.category} &middot; {tierLabel(selected.price)}
+              </p>
+
+              {/* Price */}
+              <p style={{ fontSize: "1.125rem", fontWeight: 700, color: "#18181b", marginBottom: "1.25rem" }}>
+                ₦{selected.price.toLocaleString()}
+              </p>
+
+              {/* Buttons */}
+              <div style={{ display: "flex", gap: "0.625rem", width: "100%" }}>
+                <button
+                  onClick={() => { setSelected(null); setError(null); }}
+                  disabled={step === "paying"}
+                  style={{
+                    flex: 1,
+                    padding: "0.625rem 0",
+                    borderRadius: "9999px",
+                    border: `1.5px solid ${tierColor(selected.price)}`,
+                    background: "transparent",
+                    color: tierColor(selected.price),
+                    fontWeight: 600,
+                    fontSize: "0.9rem",
+                    cursor: step === "paying" ? "not-allowed" : "pointer",
+                    opacity: step === "paying" ? 0.5 : 1,
+                    transition: "opacity 0.15s",
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleReservePay}
+                  disabled={step === "paying"}
+                  style={{
+                    flex: 1,
+                    padding: "0.625rem 0",
+                    borderRadius: "9999px",
+                    border: "none",
+                    background: tierColor(selected.price),
+                    color: "#ffffff",
+                    fontWeight: 600,
+                    fontSize: "0.9rem",
+                    cursor: step === "paying" ? "not-allowed" : "pointer",
+                    opacity: step === "paying" ? 0.85 : 1,
+                    transition: "opacity 0.15s",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: "0.4rem",
+                  }}
+                >
+                  {step === "paying" ? (
+                    <>
+                      <Loader2 style={{ width: "1rem", height: "1rem", animation: "spin 1s linear infinite" }} />
+                      Redirecting…
+                    </>
+                  ) : (
+                    "Reserve & Pay"
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
       </DialogContent>
     </Dialog>
   );
