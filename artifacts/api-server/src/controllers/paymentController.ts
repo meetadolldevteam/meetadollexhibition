@@ -3,7 +3,7 @@ import crypto from "crypto";
 import { v4 as uuidv4 } from "uuid";
 import { supabase } from "../config/supabase";
 import { logger } from "../lib/logger";
-import { sendConfirmationEmail } from "../services/email";
+import { sendConfirmationEmail, sendPaymentAdminNotificationEmail } from "../services/email";
 import { safeGenerateTicketPDF } from "../services/ticketGenerator";
 import { AuthRequest } from "../middleware/auth";
 
@@ -222,7 +222,7 @@ export async function paymentWebhook(req: Request, res: Response): Promise<void>
       .select(`
         id, stall_id, user_id, status,
         stalls ( stall_number, package, price, category, exhibitions ( name, venue, start_date ) ),
-        users ( name, email )
+        users ( name, email, business_name )
       `)
       .eq("id", payment.reservation_id)
       .single();
@@ -309,6 +309,30 @@ export async function paymentWebhook(req: Request, res: Response): Promise<void>
           ticketPDF,
         });
       }
+
+      const paidAt = new Date().toLocaleString("en-NG", {
+        timeZone: "Africa/Lagos",
+        weekday: "long",
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+
+      void sendPaymentAdminNotificationEmail({
+        vendorName: vendor?.name ?? vendor?.email ?? "Unknown",
+        email: vendor?.email ?? "N/A",
+        businessName: (vendor as any)?.business_name ?? "N/A",
+        stallNumber: stall?.stall_number ?? "N/A",
+        stallCategory: stall?.category ?? "N/A",
+        stallPackage: stall?.package ?? "N/A",
+        amountPaid: amountNaira,
+        transactionReference: reference,
+        reservationId: reservation.id,
+        exhibitionName: exh?.name ?? "Meetadoll Exhibition",
+        paidAt,
+      });
     }
 
     res.status(200).json({ message: "Webhook processed" });

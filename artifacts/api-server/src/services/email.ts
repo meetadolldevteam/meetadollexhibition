@@ -476,6 +476,78 @@ export async function sendAdminNotificationEmail(data: {
   }
 }
 
+export async function sendPaymentAdminNotificationEmail(data: {
+  vendorName: string;
+  email: string;
+  businessName: string;
+  stallNumber: string;
+  stallCategory: string;
+  stallPackage: string;
+  amountPaid: number;
+  transactionReference: string;
+  reservationId: string;
+  exhibitionName: string;
+  paidAt: string;
+}): Promise<void> {
+  const resend = getResendClient();
+  if (!resend) {
+    logger.warn("RESEND_API_KEY not configured — skipping payment admin notification email");
+    return;
+  }
+  const {
+    vendorName, email, businessName, stallNumber, stallCategory,
+    stallPackage, amountPaid, transactionReference, reservationId,
+    exhibitionName, paidAt,
+  } = data;
+  const formattedAmount = `₦${amountPaid.toLocaleString("en-NG")}`;
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"/><title>Payment Confirmed</title></head>
+<body style="margin:0;padding:0;background:#f4f4f5;font-family:Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f4f4f5;padding:32px 16px;">
+    <tr><td align="center">
+      <table width="600" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
+        <tr><td style="background:#111827;padding:24px 40px;">
+          <p style="margin:0;font-size:11px;color:rgba(255,255,255,0.6);text-transform:uppercase;letter-spacing:0.2em;">Meetadoll Admin Alert</p>
+          <h1 style="margin:6px 0 0;font-size:20px;color:#fff;font-weight:700;">💳 Payment Confirmed</h1>
+        </td></tr>
+        <tr><td style="padding:20px 40px 8px;">
+          <p style="margin:0;font-size:13px;color:#374151;">A vendor has successfully completed payment for a stall.</p>
+        </td></tr>
+        <tr><td style="padding:8px 40px 28px;">
+          <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;">
+            <tr><td style="padding:14px 20px;border-bottom:1px solid #e5e7eb;"><span style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:0.08em;">Vendor Name</span><p style="margin:4px 0 0;font-size:14px;font-weight:600;color:#111827;">${vendorName}</p></td></tr>
+            <tr><td style="padding:14px 20px;border-bottom:1px solid #e5e7eb;"><span style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:0.08em;">Email</span><p style="margin:4px 0 0;font-size:14px;color:#111827;">${email}</p></td></tr>
+            <tr><td style="padding:14px 20px;border-bottom:1px solid #e5e7eb;"><span style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:0.08em;">Business Name</span><p style="margin:4px 0 0;font-size:14px;font-weight:600;color:#111827;">${businessName}</p></td></tr>
+            <tr><td style="padding:14px 20px;border-bottom:1px solid #e5e7eb;"><span style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:0.08em;">Exhibition</span><p style="margin:4px 0 0;font-size:14px;color:#111827;">${exhibitionName}</p></td></tr>
+            <tr><td style="padding:14px 20px;border-bottom:1px solid #e5e7eb;"><span style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:0.08em;">Stall Number</span><p style="margin:4px 0 0;font-size:20px;font-weight:700;color:#111827;">#${stallNumber}</p></td></tr>
+            <tr><td style="padding:14px 20px;border-bottom:1px solid #e5e7eb;"><span style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:0.08em;">Category / Package</span><p style="margin:4px 0 0;font-size:14px;color:#111827;">${stallCategory} — ${stallPackage}</p></td></tr>
+            <tr><td style="padding:14px 20px;border-bottom:1px solid #e5e7eb;"><span style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:0.08em;">Amount Paid</span><p style="margin:4px 0 0;font-size:18px;font-weight:700;color:#16a34a;">${formattedAmount}</p></td></tr>
+            <tr><td style="padding:14px 20px;border-bottom:1px solid #e5e7eb;"><span style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:0.08em;">Transaction Ref</span><p style="margin:4px 0 0;font-size:12px;font-family:monospace;color:#111827;">${transactionReference}</p></td></tr>
+            <tr><td style="padding:14px 20px;border-bottom:1px solid #e5e7eb;"><span style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:0.08em;">Reservation ID</span><p style="margin:4px 0 0;font-size:12px;font-family:monospace;color:#111827;">${reservationId}</p></td></tr>
+            <tr><td style="padding:14px 20px;"><span style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:0.08em;">Paid At</span><p style="margin:4px 0 0;font-size:14px;color:#111827;">${paidAt}</p></td></tr>
+          </table>
+        </td></tr>
+        <tr><td style="padding:16px 40px;background:#f9fafb;border-top:1px solid #e5e7eb;text-align:center;">
+          <p style="margin:0;font-size:11px;color:#9ca3af;">Meetadoll Exhibition — Automated Payment Alert</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>`;
+  try {
+    await resend.emails.send({
+      from: FROM_EMAIL,
+      to: "meetadollmanagement@gmail.com",
+      subject: `💳 Payment Confirmed — Stall #${stallNumber} | ${vendorName} | ${formattedAmount}`,
+      html,
+    });
+    logger.info({ reservationId, stallNumber, amountPaid }, "Payment admin notification email sent");
+  } catch (err) {
+    logger.error({ err }, "Failed to send payment admin notification email");
+  }
+}
+
 export async function sendAnnouncementEmail(to: string, vendorName: string, subject: string, message: string): Promise<void> {
   const resend = getResendClient();
   if (!resend) {
