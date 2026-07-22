@@ -27,9 +27,9 @@ const AboutSection = () => (
       <ScrollReveal delay={0.2}>
         <div className="relative h-full min-h-[300px]">
           <img
-            src="/images/about.webp"
+            src="/images/event-photo.jpg"
             alt="About the exhibition"
-            className="rounded-2xl w-full h-full object-cover"
+            className="rounded-2xl w-full h-full object-cover object-center"
           />
           <div className="absolute bottom-4 right-4 flex gap-2">
             {[{ d: "05", m: "DEC" }, { d: "06", m: "DEC" }].map((day) => (
