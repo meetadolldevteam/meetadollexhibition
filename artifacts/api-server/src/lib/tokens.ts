@@ -10,6 +10,7 @@ export interface AccessTokenPayload {
   business_category?: string | null;
   business_logo_url?: string | null;
   instagram_username?: string | null;
+  business_profile_complete?: boolean;
 }
 
 export interface RefreshTokenPayload {

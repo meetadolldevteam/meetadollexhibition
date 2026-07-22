@@ -12,6 +12,7 @@ import {
 } from "../lib/tokens";
 import { createAndSendOtp } from "../services/otp";
 import { sendWelcomeEmail, sendAdminNotificationEmail } from "../services/email";
+import type { AuthRequest } from "../middleware/auth";
 
 interface MulterFile {
   fieldname: string;
@@ -52,45 +53,9 @@ async function uploadLogo(file: MulterFile, userId: string): Promise<string | nu
   }
 }
 
+// ── Register: personal details only ──────────────────────────────────────────
 export async function register(req: Request, res: Response): Promise<void> {
-  const {
-    email,
-    password,
-    name,
-    phone,
-    vendor_category,
-    business_name,
-    business_category,
-    business_phone,
-    instagram_username,
-  } = req.body as Record<string, string>;
-
-  const logoFile = (req as Request & { file?: MulterFile }).file;
-
-  if (!business_name?.trim()) {
-    res.status(422).json({ error: "Business name is required" });
-    return;
-  }
-  if (!business_category?.trim()) {
-    res.status(422).json({ error: "Business category is required" });
-    return;
-  }
-  if (!business_phone?.trim()) {
-    res.status(422).json({ error: "Business phone number is required" });
-    return;
-  }
-  if (!instagram_username?.trim()) {
-    res.status(422).json({ error: "Instagram username is required" });
-    return;
-  }
-  if (!logoFile) {
-    res.status(422).json({ error: "Business logo is required" });
-    return;
-  }
-  if (logoFile.size > 4 * 1024 * 1024) {
-    res.status(422).json({ error: "Logo file must be under 4MB" });
-    return;
-  }
+  const { email, password, name, phone, vendor_category } = req.body as Record<string, string>;
 
   try {
     const { data: existing } = await supabase
@@ -105,7 +70,6 @@ export async function register(req: Request, res: Response): Promise<void> {
     }
 
     const passwordHash = await bcrypt.hash(password, 12);
-    const cleanInstagram = instagram_username.replace(/^@/, "");
 
     const { data: user, error } = await supabase
       .from("users")
@@ -117,12 +81,9 @@ export async function register(req: Request, res: Response): Promise<void> {
         role: "vendor",
         email_verified: false,
         vendor_category: vendor_category ?? null,
-        business_name: business_name.trim(),
-        business_category: business_category.trim(),
-        business_phone: business_phone.trim(),
-        instagram_username: cleanInstagram,
+        business_profile_complete: false,
       })
-      .select("id, email, name, role, vendor_category, business_name, business_category, instagram_username")
+      .select("id, email, name, role, vendor_category")
       .single();
 
     if (error || !user) {
@@ -131,40 +92,7 @@ export async function register(req: Request, res: Response): Promise<void> {
       return;
     }
 
-    const logoUrl = await uploadLogo(logoFile, user.id);
-    if (logoUrl) {
-      await supabase.from("users").update({ business_logo_url: logoUrl }).eq("id", user.id);
-    }
-
     await createAndSendOtp(user.id, user.email, "registration");
-
-    const registeredAt = new Date().toLocaleString("en-NG", {
-      timeZone: "Africa/Lagos",
-      weekday: "long",
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-
-    void sendWelcomeEmail({
-      to: user.email,
-      vendorName: user.name ?? name,
-      businessName: business_name.trim(),
-      businessCategory: business_category.trim(),
-      instagramUsername: cleanInstagram,
-    });
-
-    void sendAdminNotificationEmail({
-      vendorName: user.name ?? name,
-      email: user.email,
-      businessName: business_name.trim(),
-      businessCategory: business_category.trim(),
-      businessPhone: business_phone.trim(),
-      instagramUsername: cleanInstagram,
-      registeredAt,
-    });
 
     res.status(201).json({
       requiresOtp: true,
@@ -178,6 +106,98 @@ export async function register(req: Request, res: Response): Promise<void> {
   }
 }
 
+// ── Complete business profile ─────────────────────────────────────────────────
+export async function completeBusinessProfile(req: AuthRequest, res: Response): Promise<void> {
+  const userId = req.user?.id;
+  if (!userId) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+
+  const { business_name, business_category, business_phone, instagram_username } =
+    req.body as Record<string, string>;
+  const logoFile = (req as AuthRequest & { file?: MulterFile }).file;
+
+  if (!logoFile) {
+    res.status(422).json({ error: "Business logo is required" });
+    return;
+  }
+
+  try {
+    const { data: existingUser } = await supabase
+      .from("users")
+      .select("id, email, name, business_profile_complete")
+      .eq("id", userId)
+      .single();
+
+    if (!existingUser) {
+      res.status(404).json({ error: "User not found" });
+      return;
+    }
+
+    if (existingUser.business_profile_complete) {
+      res.status(409).json({ error: "Business profile already completed" });
+      return;
+    }
+
+    const logoUrl = await uploadLogo(logoFile, userId);
+    const cleanInstagram = instagram_username.replace(/^@/, "");
+
+    const { error: updateError } = await supabase
+      .from("users")
+      .update({
+        business_name: business_name.trim(),
+        business_category: business_category.trim(),
+        business_phone: business_phone.trim(),
+        instagram_username: cleanInstagram,
+        business_logo_url: logoUrl,
+        business_profile_complete: true,
+      })
+      .eq("id", userId);
+
+    if (updateError) {
+      logger.error({ err: updateError }, "Failed to update business profile");
+      res.status(500).json({ error: "Failed to save business profile" });
+      return;
+    }
+
+    const registeredAt = new Date().toLocaleString("en-NG", {
+      timeZone: "Africa/Lagos",
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+
+    void sendWelcomeEmail({
+      to: existingUser.email,
+      vendorName: existingUser.name ?? "",
+      businessName: business_name.trim(),
+      businessCategory: business_category.trim(),
+      instagramUsername: cleanInstagram,
+    });
+
+    void sendAdminNotificationEmail({
+      vendorName: existingUser.name ?? "",
+      email: existingUser.email,
+      businessName: business_name.trim(),
+      businessCategory: business_category.trim(),
+      businessPhone: business_phone.trim(),
+      instagramUsername: cleanInstagram,
+      registeredAt,
+    });
+
+    logger.info({ userId }, "Business profile completed");
+    res.json({ success: true, message: "Business profile saved." });
+  } catch (err) {
+    logger.error({ err }, "Complete business profile error");
+    res.status(500).json({ error: "Internal server error" });
+  }
+}
+
+// ── Login ─────────────────────────────────────────────────────────────────────
 export async function login(req: Request, res: Response): Promise<void> {
   const { email, password } = req.body;
 
@@ -212,6 +232,7 @@ export async function login(req: Request, res: Response): Promise<void> {
   }
 }
 
+// ── Refresh token ─────────────────────────────────────────────────────────────
 export async function refresh(req: Request, res: Response): Promise<void> {
   const token = req.cookies?.[REFRESH_COOKIE_NAME];
 
@@ -225,7 +246,7 @@ export async function refresh(req: Request, res: Response): Promise<void> {
 
     const { data: user, error } = await supabase
       .from("users")
-      .select("id, email, name, role, vendor_category, business_name, business_category, business_logo_url, instagram_username")
+      .select("id, email, name, role, vendor_category, business_name, business_category, business_logo_url, instagram_username, business_profile_complete")
       .eq("id", decoded.id)
       .single();
 
@@ -241,6 +262,7 @@ export async function refresh(req: Request, res: Response): Promise<void> {
       business_category?: string | null;
       business_logo_url?: string | null;
       instagram_username?: string | null;
+      business_profile_complete?: boolean;
     };
 
     const accessToken = signAccessToken({
@@ -253,11 +275,11 @@ export async function refresh(req: Request, res: Response): Promise<void> {
       business_category: u.business_category,
       business_logo_url: u.business_logo_url,
       instagram_username: u.instagram_username,
+      business_profile_complete: u.business_profile_complete ?? false,
     });
     const newRefreshToken = signRefreshToken(user.id);
 
     res.cookie(REFRESH_COOKIE_NAME, newRefreshToken, refreshCookieOptions);
-
     res.json({
       token: accessToken,
       user: {
@@ -270,6 +292,7 @@ export async function refresh(req: Request, res: Response): Promise<void> {
         business_category: u.business_category,
         business_logo_url: u.business_logo_url,
         instagram_username: u.instagram_username,
+        business_profile_complete: u.business_profile_complete ?? false,
       },
     });
   } catch (err) {
@@ -282,11 +305,13 @@ export async function refresh(req: Request, res: Response): Promise<void> {
   }
 }
 
+// ── Logout ────────────────────────────────────────────────────────────────────
 export async function logout(_req: Request, res: Response): Promise<void> {
   res.clearCookie(REFRESH_COOKIE_NAME, { path: "/api/auth" });
   res.json({ message: "Logged out" });
 }
 
+// ── Verify email (link-based, legacy) ────────────────────────────────────────
 export async function verifyEmail(req: Request, res: Response): Promise<void> {
   const { token } = req.body;
 
@@ -324,11 +349,7 @@ export async function verifyEmail(req: Request, res: Response): Promise<void> {
       return;
     }
 
-    await supabase
-      .from("users")
-      .update({ email_verified: true })
-      .eq("id", user.id);
-
+    await supabase.from("users").update({ email_verified: true }).eq("id", user.id);
     res.json({ message: "Email verified successfully" });
   } catch (err) {
     logger.error({ err }, "Email verification error");

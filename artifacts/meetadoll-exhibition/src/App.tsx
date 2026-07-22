@@ -16,6 +16,7 @@ import AdminDashboardPage from "./pages/AdminDashboardPage.tsx";
 import TermsPage from "./pages/TermsPage.tsx";
 import PrivacyPage from "./pages/PrivacyPage.tsx";
 import DevAuthPage from "./pages/DevAuthPage.tsx";
+import BusinessProfilePage from "./pages/BusinessProfilePage.tsx";
 
 const CANONICAL_BASE = "https://meetadollexhibition.com";
 const DEFAULT_DESCRIPTION =
@@ -56,6 +57,11 @@ const PAGE_META: Record<string, PageMetaConfig> = {
   "/my-reservations": {
     title: "My Reservations | Meetadoll Exhibition",
     description: "View and manage your vendor stall reservations for the Meetadoll Exhibition.",
+    noIndex: true,
+  },
+  "/business-profile": {
+    title: "Business Profile | Meetadoll Exhibition",
+    description: "Complete your business profile to reserve a stall at the Meetadoll Exhibition.",
     noIndex: true,
   },
   "/admin": {
@@ -132,6 +138,7 @@ const App = () => {
               <Route path="/register" element={<RegisterPage />} />
               <Route path="/payment/callback" element={<PaymentCallbackPage />} />
               <Route path="/my-reservations" element={<MyReservationsPage />} />
+              <Route path="/business-profile" element={<BusinessProfilePage />} />
               <Route path="/admin" element={<AdminDashboardPage />} />
               <Route path="/terms" element={<TermsPage />} />
               <Route path="/privacy" element={<PrivacyPage />} />

@@ -256,6 +256,29 @@ export default function StallPickerModal({ open, onOpenChange, defaultTierFilter
     );
   }
 
+  if (!user.business_profile_complete) {
+    return (
+      <Dialog open={open} onOpenChange={handleClose}>
+        <DialogContent className="bg-background border-border max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="font-display text-2xl">Complete your profile first</DialogTitle>
+            <DialogDescription>
+              We need a few details about your business before you can pick a stall. It only takes a minute.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-3 pt-2">
+            <Button className="rounded-full" onClick={() => { handleClose(false); navigate("/business-profile"); }}>
+              Complete business profile
+            </Button>
+            <Button variant="ghost" className="rounded-full" onClick={() => handleClose(false)}>
+              Maybe later
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
   const allowedCat = vendorAllowedCategory(user.vendor_category);
 
   const FILTER_TABS: { value: StallFilter; label: string }[] = [

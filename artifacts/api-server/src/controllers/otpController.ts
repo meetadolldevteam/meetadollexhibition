@@ -95,7 +95,7 @@ export async function verifyOtp(req: Request, res: Response): Promise<void> {
 
     const { data: user, error: userErr } = await supabase
       .from("users")
-      .select("id, email, name, role, vendor_category, business_name, business_category, business_logo_url, instagram_username")
+      .select("id, email, name, role, vendor_category, business_name, business_category, business_logo_url, instagram_username, business_profile_complete")
       .eq("id", userId)
       .single();
 
@@ -105,10 +105,7 @@ export async function verifyOtp(req: Request, res: Response): Promise<void> {
     }
 
     if (type === "registration") {
-      await supabase
-        .from("users")
-        .update({ email_verified: true })
-        .eq("id", userId);
+      await supabase.from("users").update({ email_verified: true }).eq("id", userId);
     }
 
     const u = user as typeof user & {
@@ -117,6 +114,7 @@ export async function verifyOtp(req: Request, res: Response): Promise<void> {
       business_category?: string | null;
       business_logo_url?: string | null;
       instagram_username?: string | null;
+      business_profile_complete?: boolean;
     };
 
     const accessToken = signAccessToken({
@@ -129,6 +127,7 @@ export async function verifyOtp(req: Request, res: Response): Promise<void> {
       business_category: u.business_category,
       business_logo_url: u.business_logo_url,
       instagram_username: u.instagram_username,
+      business_profile_complete: u.business_profile_complete ?? false,
     });
     const refreshToken = signRefreshToken(user.id);
     res.cookie(REFRESH_COOKIE_NAME, refreshToken, refreshCookieOptions);
@@ -146,6 +145,7 @@ export async function verifyOtp(req: Request, res: Response): Promise<void> {
         business_category: u.business_category,
         business_logo_url: u.business_logo_url,
         instagram_username: u.instagram_username,
+        business_profile_complete: u.business_profile_complete ?? false,
       },
     });
   } catch (err) {

@@ -11,6 +11,7 @@ interface User {
   business_category?: string | null;
   business_logo_url?: string | null;
   instagram_username?: string | null;
+  business_profile_complete?: boolean;
 }
 
 export interface OtpRequired {
@@ -26,6 +27,7 @@ interface AuthContextValue {
   verifyOtp: (userId: string, otp: string, type: "registration" | "login") => Promise<void>;
   resendOtp: (userId: string, type: "registration" | "login") => Promise<void>;
   logout: () => Promise<void>;
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -55,6 +57,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     initialized.current = true;
     void hydrate();
   }, [hydrate]);
+
+  const refreshUser = useCallback(async () => {
+    try {
+      const data = await api.post<{ token: string; user: User }>("/auth/refresh", undefined, {
+        skipAuthRetry: true,
+      });
+      setAccessToken(data.token);
+      setUser(data.user);
+    } catch {
+      // keep current user on failure
+    }
+  }, []);
 
   const login = useCallback(async (email: string, password: string): Promise<OtpRequired | void> => {
     const data = await api.post<{ requiresOtp?: boolean; userId?: string } | { token: string; user: User }>(
@@ -101,7 +115,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, verifyOtp, resendOtp, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, verifyOtp, resendOtp, logout, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );
