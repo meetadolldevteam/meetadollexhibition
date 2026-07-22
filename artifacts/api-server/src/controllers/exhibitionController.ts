@@ -27,7 +27,7 @@ export async function getExhibitions(req: Request, res: Response): Promise<void>
         supabase
           .from("exhibitions")
           .select("id, name, venue, start_date, end_date, status", { count: "exact" })
-          .eq("status", "active")
+          .in("status", ["active", "upcoming"])
           .order("start_date", { ascending: true })
           .range(offset, offset + limit - 1),
       { label: "getExhibitions" }

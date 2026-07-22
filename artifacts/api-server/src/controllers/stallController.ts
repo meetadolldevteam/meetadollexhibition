@@ -35,7 +35,7 @@ export async function getStallStats(req: Request, res: Response): Promise<void> 
       .eq("id", exhibition_id)
       .maybeSingle();
 
-    if (exhibitionError || !exhibition || exhibition.status !== "active") {
+    if (exhibitionError || !exhibition || !["active", "upcoming"].includes(exhibition.status)) {
       res.status(404).json({ error: "Exhibition not found" });
       return;
     }
@@ -95,7 +95,7 @@ export async function getStalls(req: Request, res: Response): Promise<void> {
       .eq("id", exhibition_id)
       .maybeSingle();
 
-    if (exhibitionError || !exhibition || exhibition.status !== "active") {
+    if (exhibitionError || !exhibition || !["active", "upcoming"].includes(exhibition.status)) {
       res.status(404).json({ error: "Exhibition not found" });
       return;
     }
