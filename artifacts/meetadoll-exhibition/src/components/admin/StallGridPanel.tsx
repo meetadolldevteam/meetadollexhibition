@@ -154,8 +154,8 @@ export default function StallGridPanel({ canEdit }: { canEdit: boolean }) {
             {canEdit && (
               <div className="space-y-2 pt-2">
                 <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Change Status</p>
-                <div className="grid grid-cols-2 gap-2">
-                  {["available", "blocked"].map((s) => (
+                <div className="grid grid-cols-3 gap-2">
+                  {(["available", "held", "blocked"] as const).map((s) => (
                     <Button
                       key={s}
                       variant="outline"
@@ -164,7 +164,7 @@ export default function StallGridPanel({ canEdit }: { canEdit: boolean }) {
                       onClick={() => updateStallStatus(selectedStall.id, s)}
                       className="capitalize text-xs"
                     >
-                      {s === "blocked" ? "🔒 Block" : "✓ Release"}
+                      {s === "blocked" ? "🔒 Block" : s === "held" ? "⏸ Hold" : "✓ Release"}
                     </Button>
                   ))}
                 </div>

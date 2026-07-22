@@ -466,7 +466,7 @@ export async function sendAdminNotificationEmail(data: {
   try {
     await resend.emails.send({
       from: FROM_EMAIL,
-      to: "meetadollmanagement@gmail.com",
+      to: "meetadolll@gmail.com",
       subject: `New Vendor Registration - ${businessName}`,
       html,
     });
@@ -538,7 +538,7 @@ export async function sendPaymentAdminNotificationEmail(data: {
   try {
     await resend.emails.send({
       from: FROM_EMAIL,
-      to: "meetadollmanagement@gmail.com",
+      to: "meetadolll@gmail.com",
       subject: `💳 Payment Confirmed — Stall #${stallNumber} | ${vendorName} | ${formattedAmount}`,
       html,
     });
