@@ -50,6 +50,12 @@ export default function ActivityLogPanel() {
 
   useEffect(() => { load(); }, [load]);
 
+  // Auto-refresh every 30 seconds for real-time activity
+  useEffect(() => {
+    const interval = setInterval(load, 30_000);
+    return () => clearInterval(interval);
+  }, [load]);
+
   const totalPages = Math.max(1, Math.ceil(total / limit));
 
   return (

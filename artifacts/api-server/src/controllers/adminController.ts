@@ -238,7 +238,9 @@ export async function getVendors(req: Request, res: Response): Promise<void> {
       .from("users")
       .select(`
         id, name, email, phone, created_at,
-        reservations ( id, status, reservation_code, stalls ( stall_number, package ) )
+        vendor_category, business_name, business_logo_url,
+        instagram_username, business_phone, business_profile_complete,
+        reservations ( id, status, reservation_code, checked_in_at, stalls ( stall_number, package ) )
       `)
       .eq("role", "vendor")
       .order("created_at", { ascending: false });
