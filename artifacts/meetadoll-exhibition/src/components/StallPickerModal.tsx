@@ -275,7 +275,7 @@ export default function StallPickerModal({ open, onOpenChange, defaultTierFilter
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="bg-background border-border max-w-2xl max-h-[90vh] overflow-hidden flex flex-col relative">
+      <DialogContent className="bg-background border-border max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
 
         {/* ── Keyframe styles ─────────────────────────────────────────────── */}
         <style>{`
