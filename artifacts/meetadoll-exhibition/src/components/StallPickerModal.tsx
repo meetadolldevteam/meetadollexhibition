@@ -73,6 +73,7 @@ function FloorPlanImage() {
         const now = Date.now();
         if (now - lastTapRef.current < 300) {
           scaleRef.current = 1;
+          (img as HTMLImageElement).style.transformOrigin = "center center";
           (img as HTMLImageElement).style.transform = "scale(1)";
         }
         lastTapRef.current = now;
@@ -82,11 +83,27 @@ function FloorPlanImage() {
     function onTouchMove(e: TouchEvent) {
       if (e.touches.length === 2 && lastDistRef.current !== null) {
         e.preventDefault();
+        const t1 = e.touches[0];
+        const t2 = e.touches[1];
         const newDist = getTouchDist(e.touches);
         const ratio = newDist / lastDistRef.current;
         scaleRef.current = Math.min(4, Math.max(1, scaleRef.current * ratio));
+
+        // Calculate the midpoint between the two fingers in client coords
+        const midX = (t1.clientX + t2.clientX) / 2;
+        const midY = (t1.clientY + t2.clientY) / 2;
+
+        // Convert to a percentage position relative to the image element.
+        // getBoundingClientRect returns the scaled bounding box; dividing by
+        // width/height gives the same percentage as the unscaled element
+        // because the ratio cancels out — so this is correct at any scale.
+        const rect = (img as HTMLImageElement).getBoundingClientRect();
+        const originX = Math.min(100, Math.max(0, ((midX - rect.left) / rect.width) * 100));
+        const originY = Math.min(100, Math.max(0, ((midY - rect.top) / rect.height) * 100));
+
+        // Set origin first, then apply scale — both committed in the same frame
+        (img as HTMLImageElement).style.transformOrigin = `${originX}% ${originY}%`;
         (img as HTMLImageElement).style.transform = `scale(${scaleRef.current})`;
-        (img as HTMLImageElement).style.transformOrigin = "center center";
         lastDistRef.current = newDist;
       }
     }

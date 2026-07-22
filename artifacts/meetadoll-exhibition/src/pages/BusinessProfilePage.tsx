@@ -112,6 +112,23 @@ export default function BusinessProfilePage() {
           </p>
         </div>
 
+        {/*
+          The file input lives OUTSIDE the <form> so that selecting a file
+          can never trigger form submission — even on quirky mobile browsers.
+          It is controlled entirely through React state via handleLogoChange.
+        */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/jpeg,image/png"
+          className="hidden"
+          onClick={(e) => e.stopPropagation()}
+          onChange={(e) => {
+            e.stopPropagation();
+            handleLogoChange(e.target.files?.[0] ?? null);
+          }}
+        />
+
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="business_name">Business name <span className="text-destructive">*</span></Label>
@@ -169,13 +186,6 @@ export default function BusinessProfilePage() {
 
           <div className="flex flex-col gap-1.5">
             <Label>Business logo <span className="text-destructive">*</span></Label>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/jpeg,image/png"
-              className="hidden"
-              onChange={(e) => handleLogoChange(e.target.files?.[0] ?? null)}
-            />
             {logoPreview ? (
               <div
                 className="relative w-24 h-24 rounded-xl overflow-hidden border border-border group cursor-pointer"
