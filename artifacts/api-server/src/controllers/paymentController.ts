@@ -104,8 +104,8 @@ export async function initiateDirectPayment(req: AuthRequest, res: Response): Pr
       return;
     }
 
-    // ── Create reservation (held, 30-min window for Paystack) ─────────────────
-    const holdExpiresAt = new Date(Date.now() + 30 * 60 * 1000).toISOString();
+    // ── Create reservation (held, 10-min window for Paystack) ─────────────────
+    const holdExpiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
     const reservationCode = `RES-${uuidv4().slice(0, 8).toUpperCase()}`;
     const reservationId = uuidv4();
 

@@ -3,7 +3,7 @@ import { supabase } from "../config/supabase";
 import { logger } from "../lib/logger";
 import { cache } from "../lib/cache";
 
-const ACTIVE_PAYMENT_GRACE_MS = 30 * 60 * 1000;
+const ACTIVE_PAYMENT_GRACE_MS = 10 * 60 * 1000;
 
 async function releaseStallIds(stallIds: string[]): Promise<void> {
   if (!stallIds.length) return;
@@ -131,8 +131,8 @@ async function runCleanup(): Promise<void> {
 }
 
 export function startHoldCleanupJob(): void {
-  cron.schedule("*/5 * * * *", () => void runCleanup());
-  logger.info("Hold cleanup cron job started (every 5 minutes)");
+  cron.schedule("* * * * *", () => void runCleanup());
+  logger.info("Hold cleanup cron job started (every minute)");
 
   // Run once immediately on startup to fix any stuck stalls right away
   void runCleanup();

@@ -4,7 +4,7 @@ import { CheckCircle2, XCircle, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const WHATSAPP_COMMUNITY = "https://chat.whatsapp.com/FDNrEZKlSfE3gZG7LUDMhV?mode=gi_t";
-const REDIRECT_DELAY = 7;
+const REDIRECT_DELAY = 5;
 
 const logo = { url: "/assets/meetadoll-logo.jpg" };
 
@@ -37,7 +37,7 @@ export default function PaymentCallbackPage() {
   useEffect(() => {
     if (status !== "success") return;
     if (countdown <= 0) {
-      window.open(WHATSAPP_COMMUNITY, "_blank", "noopener,noreferrer");
+      window.location.href = WHATSAPP_COMMUNITY;
       return;
     }
     const t = setTimeout(() => setCountdown((c) => c - 1), 1000);
@@ -114,7 +114,7 @@ export default function PaymentCallbackPage() {
             <XCircle className="w-14 h-14 text-destructive mx-auto mb-4" />
             <h1 className="font-display text-3xl font-bold mb-2">Payment failed</h1>
             <p className="text-muted-foreground text-sm mb-6">
-              Something went wrong with your payment. Your stall hold is still active for 15 minutes. You can try again from your reservations.
+              Something went wrong with your payment. Your stall hold is still active for 10 minutes. You can try again from your reservations.
             </p>
             <div className="flex flex-col gap-3">
               <Button asChild className="rounded-full">
