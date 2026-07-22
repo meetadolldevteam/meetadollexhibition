@@ -117,9 +117,17 @@ router.post(
       .trim()
       .notEmpty()
       .withMessage("Instagram username is required")
-      .customSanitizer((val: string) => val.replace(/^@/, "").replace(/^https?:\/\/(www\.)?instagram\.com\/?/, "").replace(/\/$/, ""))
+      .customSanitizer((val: string) => {
+        if (typeof val !== "string") return val;
+        return val
+          .replace(/^https?:\/\/(www\.)?instagram\.com\/?/, "")
+          .replace(/^instagram\.com\/?/, "")
+          .replace(/\/$/, "")
+          .replace(/^@+/, "")
+          .trim();
+      })
       .matches(/^[a-zA-Z0-9._]{1,30}$/)
-      .withMessage("Enter a valid Instagram username (letters, numbers, . and _ only)"),
+      .withMessage("Enter a valid Instagram username (e.g. amiras_closet)"),
   ],
   validate,
   completeBusinessProfile

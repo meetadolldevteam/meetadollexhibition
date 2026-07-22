@@ -74,7 +74,15 @@ export default function BusinessProfilePage() {
       fd.append("business_name", businessName);
       fd.append("business_category", businessCategory);
       fd.append("business_phone", businessPhone);
-      fd.append("instagram_username", instagramUsername.replace(/^@/, ""));
+      fd.append(
+        "instagram_username",
+        instagramUsername
+          .replace(/^https?:\/\/(www\.)?instagram\.com\/?/, "")
+          .replace(/^instagram\.com\/?/, "")
+          .replace(/\/$/, "")
+          .replace(/^@+/, "")
+          .trim()
+      );
       fd.append("business_logo", logoFile);
 
       await apiRequest<{ success: boolean }>("/auth/business-profile", {
