@@ -277,7 +277,7 @@ export default function StallPickerModal({ open, onOpenChange, defaultTierFilter
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="bg-background border-border max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
 
-        {/* ── Keyframe styles ─────────────────────────────────────────────── */}
+        {/* ── Keyframe + selected-stall styles ────────────────────────────── */}
         <style>{`
           @keyframes stall-confirm-in {
             from { opacity: 0; transform: scale(0.88); }
@@ -286,6 +286,18 @@ export default function StallPickerModal({ open, onOpenChange, defaultTierFilter
           @keyframes stall-overlay-in {
             from { opacity: 0; }
             to   { opacity: 1; }
+          }
+          .stall-selected-t1 {
+            background-color: #8B0000 !important;
+            border: 2px solid #8B0000 !important;
+            color: #ffffff !important;
+            box-shadow: 0 0 0 3px rgba(139,0,0,0.25);
+          }
+          .stall-selected-t2 {
+            background-color: #00AEAE !important;
+            border: 2px solid #00AEAE !important;
+            color: #ffffff !important;
+            box-shadow: 0 0 0 3px rgba(0,174,174,0.25);
           }
         `}</style>
 
@@ -325,10 +337,11 @@ export default function StallPickerModal({ open, onOpenChange, defaultTierFilter
               <button
                 key={tab.value}
                 onClick={() => setStallFilter(tab.value)}
+                style={{ WebkitAppearance: "none", appearance: "none" }}
                 className={`text-xs rounded-full px-3 py-1.5 border font-medium transition-colors ${
                   stallFilter === tab.value
-                    ? "bg-primary text-primary-foreground border-primary"
-                    : "border-border text-muted-foreground hover:text-foreground"
+                    ? "bg-primary/10 text-primary border-primary"
+                    : "bg-muted border-border text-foreground/70 hover:text-foreground"
                 }`}
               >
                 {tab.label}
@@ -426,10 +439,11 @@ export default function StallPickerModal({ open, onOpenChange, defaultTierFilter
                     baseStyle = { cursor: "pointer" };
                     selClass = isTier2 ? "stall-selected-t2" : "stall-selected-t1";
                   } else {
+                    const bgHex = isTier2 ? "#e6f9f9" : "#fdf0f0";
                     baseStyle = {
-                      backgroundColor: "#ffffff",
+                      backgroundColor: bgHex,
                       border: `2px solid ${color}`,
-                      color: "#27272a",
+                      color: color,
                       cursor: "pointer",
                     };
                   }
@@ -452,6 +466,7 @@ export default function StallPickerModal({ open, onOpenChange, defaultTierFilter
                         transition: "transform 0.12s ease, box-shadow 0.12s ease, background-color 0.12s ease",
                         userSelect: "none",
                         WebkitUserSelect: "none",
+                        WebkitAppearance: "none",
                         padding: 0,
                         outline: "none",
                       }}
@@ -529,14 +544,15 @@ export default function StallPickerModal({ open, onOpenChange, defaultTierFilter
                     flex: 1,
                     padding: "0.625rem 0",
                     borderRadius: "9999px",
-                    border: `1.5px solid ${tierColor(selected.price)}`,
-                    background: "transparent",
+                    border: `2px solid ${tierColor(selected.price)}`,
+                    background: "#ffffff",
                     color: tierColor(selected.price),
-                    fontWeight: 600,
+                    fontWeight: 700,
                     fontSize: "0.9rem",
                     cursor: step === "paying" ? "not-allowed" : "pointer",
                     opacity: step === "paying" ? 0.5 : 1,
                     transition: "opacity 0.15s",
+                    WebkitAppearance: "none",
                   }}
                 >
                   Cancel
@@ -551,7 +567,7 @@ export default function StallPickerModal({ open, onOpenChange, defaultTierFilter
                     border: "none",
                     background: tierColor(selected.price),
                     color: "#ffffff",
-                    fontWeight: 600,
+                    fontWeight: 700,
                     fontSize: "0.9rem",
                     cursor: step === "paying" ? "not-allowed" : "pointer",
                     opacity: step === "paying" ? 0.85 : 1,
@@ -560,6 +576,7 @@ export default function StallPickerModal({ open, onOpenChange, defaultTierFilter
                     alignItems: "center",
                     justifyContent: "center",
                     gap: "0.4rem",
+                    WebkitAppearance: "none",
                   }}
                 >
                   {step === "paying" ? (
