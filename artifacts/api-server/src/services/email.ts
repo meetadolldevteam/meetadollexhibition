@@ -210,7 +210,7 @@ function buildConfirmationHtml(data: ConfirmationEmailData): string {
               <a href="${ORGANIZER_WHATSAPP}" target="_blank" style="display:inline-block;background-color:#25D366;color:#ffffff;font-size:14px;font-weight:700;padding:13px 30px;border-radius:50px;text-decoration:none;letter-spacing:0.03em;font-family:Arial,sans-serif;">
                 &#128172;&nbsp;&nbsp;WhatsApp the Organizer
               </a>
-              <p style="margin:12px 0 0 0;font-size:12px;color:#9ca3af;font-family:Arial,sans-serif;">+234 906 360 4449 &nbsp;|&nbsp; info@meetadoll.com</p>
+              <p style="margin:12px 0 0 0;font-size:12px;color:#9ca3af;font-family:Arial,sans-serif;">08120201518 &nbsp;|&nbsp; info@meetadoll.com</p>
             </td>
           </tr>
 
@@ -402,7 +402,7 @@ export async function sendWelcomeEmail(data: {
             </td></tr>
           </table>
           <p style="margin:14px 0;font-size:14px;color:#374151;line-height:1.6;">Your next step is to <strong>pick and hold a stall</strong> from your vendor dashboard, then complete your payment to lock it in.</p>
-          <p style="margin:0;font-size:13px;color:#6b7280;">Questions? Reach us on WhatsApp: <a href="https://wa.me/2349063604449" style="color:#8B0000;">+234 906 360 4449</a></p>
+          <p style="margin:0;font-size:13px;color:#6b7280;">Questions? Reach us on WhatsApp: <a href="https://wa.me/2348120201518" style="color:#8B0000;">08120201518</a></p>
         </td></tr>
         <tr><td style="padding:20px 40px;text-align:center;background:#f9fafb;border-top:1px solid #e5e7eb;">
           <p style="margin:0;font-size:11px;color:#9ca3af;">&copy; ${new Date().getFullYear()} Meetadoll Exhibition. All rights reserved.</p>

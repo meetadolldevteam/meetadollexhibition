@@ -305,7 +305,7 @@ export async function paymentWebhook(req: Request, res: Response): Promise<void>
           exhibitionName: exh?.name ?? "Meetadoll Exhibition",
           venue: exh?.venue ?? "TBD",
           date: exh?.start_date ?? "TBD",
-          organizerContact: "+234 906 360 4449",
+          organizerContact: "08120201518",
           ticketPDF,
         });
       }

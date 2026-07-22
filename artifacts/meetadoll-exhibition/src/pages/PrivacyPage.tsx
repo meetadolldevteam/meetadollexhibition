@@ -136,7 +136,7 @@ export default function PrivacyPage() {
             <p className="font-semibold text-foreground">Meetadoll Exhibition</p>
             <p>Owner: Hauwa Manga</p>
             <p>Email: <a href="mailto:meetadollmanagement@gmail.com" className="text-primary hover:underline">meetadollmanagement@gmail.com</a></p>
-            <p>WhatsApp: <a href="https://wa.me/2349063604449" target="_blank" rel="noreferrer" className="text-primary hover:underline">+234 906 360 4449</a></p>
+            <p>WhatsApp: <a href="https://wa.me/2348120201518" target="_blank" rel="noreferrer" className="text-primary hover:underline">08120201518</a></p>
             <p>Nigeria</p>
           </div>
         </Section>
