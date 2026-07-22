@@ -25,10 +25,10 @@ interface MulterFile {
 async function ensureLogosBucket(): Promise<void> {
   const { error } = await supabase.storage.createBucket("business-logos", {
     public: true,
-    allowedMimeTypes: ["image/jpeg", "image/png"],
+    allowedMimeTypes: ["image/jpeg", "image/jpg", "image/png", "image/webp"],
     fileSizeLimit: 4 * 1024 * 1024,
   });
-  if (error && !error.message.includes("already exists")) {
+  if (error && !error.message.toLowerCase().includes("already exists")) {
     logger.warn({ err: error }, "Could not ensure business-logos bucket");
   }
 }
@@ -36,19 +36,24 @@ async function ensureLogosBucket(): Promise<void> {
 async function uploadLogo(file: MulterFile, userId: string): Promise<string | null> {
   try {
     await ensureLogosBucket();
-    const ext = file.mimetype === "image/png" ? "png" : "jpg";
+    const ext = file.mimetype === "image/png" ? "png" : file.mimetype === "image/webp" ? "webp" : "jpg";
     const fileName = `${userId}-${Date.now()}.${ext}`;
-    const { error } = await supabase.storage
+    const { error: uploadError } = await supabase.storage
       .from("business-logos")
       .upload(fileName, file.buffer, { contentType: file.mimetype, upsert: true });
-    if (error) {
-      logger.warn({ err: error }, "Logo upload failed — continuing without logo");
+    if (uploadError) {
+      logger.error(
+        { err: uploadError, code: uploadError.message, userId, fileName },
+        "Logo upload to Supabase Storage failed — continuing without logo"
+      );
+      console.error("[Logo Upload Error]", JSON.stringify(uploadError));
       return null;
     }
     const { data } = supabase.storage.from("business-logos").getPublicUrl(fileName);
     return data.publicUrl;
   } catch (err) {
-    logger.warn({ err }, "Logo upload exception — continuing without logo");
+    logger.error({ err }, "Logo upload threw an exception — continuing without logo");
+    console.error("[Logo Upload Exception]", err);
     return null;
   }
 }
@@ -114,14 +119,12 @@ export async function completeBusinessProfile(req: AuthRequest, res: Response): 
     return;
   }
 
-  const { business_name, business_category, business_phone, instagram_username } =
-    req.body as Record<string, string>;
+  const body = req.body as Record<string, string>;
+  const business_name = body.business_name ?? "";
+  const business_category = body.business_category ?? "";
+  const business_phone = body.business_phone ?? null;
+  const instagram_username = (body.instagram_username ?? "").replace(/^@/, "").trim();
   const logoFile = (req as AuthRequest & { file?: MulterFile }).file;
-
-  if (!logoFile) {
-    res.status(422).json({ error: "Business logo is required" });
-    return;
-  }
 
   try {
     const { data: existingUser } = await supabase
@@ -140,24 +143,31 @@ export async function completeBusinessProfile(req: AuthRequest, res: Response): 
       return;
     }
 
-    const logoUrl = await uploadLogo(logoFile, userId);
-    const cleanInstagram = instagram_username.replace(/^@/, "");
+    // Upload logo if provided — failure is non-fatal, we save the profile either way
+    let logoUrl: string | null = null;
+    if (logoFile) {
+      logoUrl = await uploadLogo(logoFile, userId);
+    }
+
+    const updatePayload: Record<string, unknown> = {
+      business_name: business_name.trim(),
+      business_category: business_category.trim(),
+      instagram_username: instagram_username || null,
+      business_logo_url: logoUrl,
+      business_profile_complete: true,
+    };
+    if (business_phone) {
+      updatePayload.business_phone = business_phone.trim();
+    }
 
     const { error: updateError } = await supabase
       .from("users")
-      .update({
-        business_name: business_name.trim(),
-        business_category: business_category.trim(),
-        business_phone: business_phone.trim(),
-        instagram_username: cleanInstagram,
-        business_logo_url: logoUrl,
-        business_profile_complete: true,
-      })
+      .update(updatePayload)
       .eq("id", userId);
 
     if (updateError) {
       logger.error({ err: updateError }, "Failed to update business profile");
-      res.status(500).json({ error: "Failed to save business profile" });
+      res.status(500).json({ error: "Failed to save business profile. Please try again." });
       return;
     }
 
@@ -176,7 +186,7 @@ export async function completeBusinessProfile(req: AuthRequest, res: Response): 
       vendorName: existingUser.name ?? "",
       businessName: business_name.trim(),
       businessCategory: business_category.trim(),
-      instagramUsername: cleanInstagram,
+      instagramUsername: instagram_username || "",
     });
 
     void sendAdminNotificationEmail({
@@ -184,16 +194,16 @@ export async function completeBusinessProfile(req: AuthRequest, res: Response): 
       email: existingUser.email,
       businessName: business_name.trim(),
       businessCategory: business_category.trim(),
-      businessPhone: business_phone.trim(),
-      instagramUsername: cleanInstagram,
+      businessPhone: business_phone?.trim() ?? "",
+      instagramUsername: instagram_username || "",
       registeredAt,
     });
 
-    logger.info({ userId }, "Business profile completed");
+    logger.info({ userId, hasLogo: !!logoUrl }, "Business profile completed");
     res.json({ success: true, message: "Business profile saved." });
   } catch (err) {
     logger.error({ err }, "Complete business profile error");
-    res.status(500).json({ error: "Internal server error" });
+    res.status(500).json({ error: "Something went wrong saving your profile. Please try again." });
   }
 }
 

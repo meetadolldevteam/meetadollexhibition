@@ -98,36 +98,40 @@ router.post(
       .trim()
       .notEmpty()
       .withMessage("Business name is required")
-      .isLength({ min: 1, max: 200 })
-      .withMessage("Business name must be under 200 characters"),
+      .isLength({ min: 2, max: 200 })
+      .withMessage("Business name must be at least 2 characters"),
+
     body("business_category")
       .trim()
       .notEmpty()
       .withMessage("Business category is required")
       .isIn(["Fashion", "Food", "Beauty", "Accessories", "Art & Craft", "Others"])
-      .withMessage("Invalid business category"),
+      .withMessage("Please select a valid business category"),
+
     body("business_phone")
+      .optional({ nullable: true, checkFalsy: true })
       .trim()
-      .notEmpty()
-      .withMessage("Business phone number is required")
-      .customSanitizer((val: string) => val.replace(/[\s\-().]/g, ""))
-      .matches(/^(\+?234|0)[789]\d{9}$/)
-      .withMessage("Must be a valid Nigerian phone number (e.g. 08012345678)"),
+      .customSanitizer((val: string) =>
+        typeof val === "string" ? val.replace(/[\s\-().]/g, "") : val
+      )
+      .custom((val: string) => {
+        if (!val) return true;
+        if (/^(\+?234|0)[789]\d{8,9}$/.test(val)) return true;
+        throw new Error("Enter a valid Nigerian phone number (e.g. 08012345678 or +2348012345678)");
+      }),
+
     body("instagram_username")
+      .optional({ nullable: true, checkFalsy: true })
       .trim()
-      .notEmpty()
-      .withMessage("Instagram username is required")
-      .customSanitizer((val: string) => {
-        if (typeof val !== "string") return val;
+      .customSanitizer((val: unknown) => {
+        if (typeof val !== "string" || !val) return "";
         return val
           .replace(/^https?:\/\/(www\.)?instagram\.com\/?/, "")
           .replace(/^instagram\.com\/?/, "")
           .replace(/\/$/, "")
           .replace(/^@+/, "")
           .trim();
-      })
-      .matches(/^[a-zA-Z0-9._]{1,30}$/)
-      .withMessage("Enter a valid Instagram username (e.g. amiras_closet)"),
+      }),
   ],
   validate,
   completeBusinessProfile
