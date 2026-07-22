@@ -1,8 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { api } from "@/lib/apiClient";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Search, Download, X, UserCheck } from "lucide-react";
+import { Search, Download, X, UserCheck, ChevronRight } from "lucide-react";
 import { toast } from "@/components/ui/use-toast";
 
 interface Reservation {
@@ -23,30 +22,164 @@ const STATUS_META: Record<string, { label: string; cls: string }> = {
   expired:    { label: "Expired",    cls: "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400" },
 };
 
+const PAY_CLS: Record<string, string> = {
+  successful: "text-green-700 dark:text-green-400",
+  pending:    "text-amber-600",
+  failed:     "text-red-600",
+  refunded:   "text-violet-600",
+};
+
+function fmt(n: number) { return `₦${(n ?? 0).toLocaleString("en-NG")}`; }
+
 function exportCsv(rows: Reservation[]) {
   const headers = ["Code", "Vendor", "Email", "Phone", "Exhibition", "Stall #", "Package", "Price", "Status", "Checked In", "Date"];
   const lines = rows.map((r) => [
-    r.reservation_code,
-    r.users?.name ?? "",
-    r.users?.email ?? "",
-    r.users?.phone ?? "",
-    r.stalls?.exhibitions?.name ?? "",
-    r.stalls?.stall_number ?? "",
-    r.stalls?.package ?? "",
-    r.stalls?.price ?? "",
-    r.status,
+    r.reservation_code, r.users?.name ?? "", r.users?.email ?? "", r.users?.phone ?? "",
+    r.stalls?.exhibitions?.name ?? "", r.stalls?.stall_number ?? "", r.stalls?.package ?? "",
+    r.stalls?.price ?? "", r.status,
     r.checked_in_at ? new Date(r.checked_in_at).toLocaleString() : "No",
     new Date(r.created_at).toLocaleString(),
   ].map((v) => `"${String(v).replace(/"/g, '""')}"`).join(","));
-
   const csv = [headers.join(","), ...lines].join("\n");
   const blob = new Blob([csv], { type: "text/csv" });
   const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
+  const a = document.createElement("a"); a.href = url;
   a.download = `reservations-${new Date().toISOString().slice(0, 10)}.csv`;
-  a.click();
-  URL.revokeObjectURL(url);
+  a.click(); URL.revokeObjectURL(url);
+}
+
+function ReservationDetailModal({
+  reservation,
+  canEdit,
+  onClose,
+  onCheckIn,
+  onCancel,
+  checkingIn,
+  cancelling,
+}: {
+  reservation: Reservation;
+  canEdit: boolean;
+  onClose: () => void;
+  onCheckIn: (id: string) => void;
+  onCancel: (id: string) => void;
+  checkingIn: string | null;
+  cancelling: string | null;
+}) {
+  const meta = STATUS_META[reservation.status] ?? { label: reservation.status, cls: "bg-zinc-100 text-zinc-600" };
+  const payment = reservation.payments?.[0] ?? null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center" onClick={onClose}>
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
+      <div
+        className="relative bg-background w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl border border-border shadow-2xl max-h-[90vh] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Handle bar (mobile) */}
+        <div className="flex justify-center pt-3 sm:hidden">
+          <div className="w-10 h-1 rounded-full bg-border" />
+        </div>
+
+        {/* Header */}
+        <div className="flex items-start justify-between px-5 pt-4 pb-3 border-b border-border">
+          <div>
+            <p className="text-xs text-muted-foreground uppercase tracking-wide">Reservation</p>
+            <p className="font-display font-bold text-lg">{reservation.reservation_code}</p>
+          </div>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground p-1">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <div className="px-5 py-4 space-y-5">
+          {/* Status */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold ${meta.cls}`}>
+              {meta.label}
+            </span>
+            {reservation.checked_in_at && (
+              <span className="text-sm text-green-600 font-medium">
+                ✓ Checked in {new Date(reservation.checked_in_at).toLocaleTimeString()}
+              </span>
+            )}
+          </div>
+
+          {/* Vendor */}
+          <div className="rounded-xl border border-border p-4 space-y-1">
+            <p className="text-xs text-muted-foreground uppercase tracking-wide mb-2">Vendor</p>
+            <p className="font-bold text-base">{reservation.users?.name ?? "—"}</p>
+            <p className="text-sm text-muted-foreground">{reservation.users?.email}</p>
+            {reservation.users?.phone && (
+              <a href={`tel:${reservation.users.phone}`} className="text-sm text-primary hover:underline block">
+                {reservation.users.phone}
+              </a>
+            )}
+          </div>
+
+          {/* Stall */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="rounded-xl bg-secondary/40 p-3">
+              <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Stall</p>
+              <p className="font-bold text-2xl">#{reservation.stalls?.stall_number ?? "—"}</p>
+              <p className="text-xs text-muted-foreground capitalize">{reservation.stalls?.package}</p>
+            </div>
+            <div className="rounded-xl bg-secondary/40 p-3">
+              <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Price</p>
+              <p className="font-bold text-lg">{reservation.stalls?.price ? fmt(reservation.stalls.price) : "—"}</p>
+              <p className="text-xs text-muted-foreground">{reservation.stalls?.exhibitions?.name}</p>
+            </div>
+          </div>
+
+          {/* Payment */}
+          {payment && (
+            <div className="rounded-xl border border-border p-4 space-y-2">
+              <p className="text-xs text-muted-foreground uppercase tracking-wide">Payment</p>
+              <div className="flex items-center justify-between">
+                <span className={`text-sm font-semibold capitalize ${PAY_CLS[payment.status] ?? ""}`}>{payment.status}</span>
+                <span className="font-bold">{fmt(payment.amount)}</span>
+              </div>
+              {payment.transaction_reference && (
+                <p className="font-mono text-xs text-muted-foreground break-all">{payment.transaction_reference}</p>
+              )}
+            </div>
+          )}
+
+          {/* Dates */}
+          <div className="text-xs text-muted-foreground space-y-1">
+            <p>Reserved: {new Date(reservation.created_at).toLocaleString()}</p>
+          </div>
+
+          {/* Actions */}
+          {(reservation.status === "confirmed" && !reservation.checked_in_at) || (canEdit && !["cancelled", "expired"].includes(reservation.status)) ? (
+            <div className="flex gap-2 pt-1">
+              {reservation.status === "confirmed" && !reservation.checked_in_at && (
+                <Button
+                  variant="outline"
+                  className="flex-1 gap-1.5"
+                  disabled={checkingIn === reservation.id}
+                  onClick={() => onCheckIn(reservation.id)}
+                >
+                  <UserCheck className="w-4 h-4" />
+                  {checkingIn === reservation.id ? "Checking in…" : "Check In"}
+                </Button>
+              )}
+              {canEdit && !["cancelled", "expired"].includes(reservation.status) && (
+                <Button
+                  variant="outline"
+                  className="flex-1 gap-1.5 text-destructive border-destructive/30 hover:bg-destructive/10"
+                  disabled={cancelling === reservation.id}
+                  onClick={() => onCancel(reservation.id)}
+                >
+                  <X className="w-4 h-4" />
+                  {cancelling === reservation.id ? "Cancelling…" : "Cancel"}
+                </Button>
+              )}
+            </div>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export default function ReservationsPanel({ canEdit }: { canEdit: boolean }) {
@@ -56,6 +189,7 @@ export default function ReservationsPanel({ canEdit }: { canEdit: boolean }) {
   const [statusFilter, setStatusFilter] = useState("");
   const [cancelling, setCancelling] = useState<string | null>(null);
   const [checkingIn, setCheckingIn] = useState<string | null>(null);
+  const [selected, setSelected] = useState<Reservation | null>(null);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -72,11 +206,7 @@ export default function ReservationsPanel({ canEdit }: { canEdit: boolean }) {
     if (statusFilter && r.status !== statusFilter) return false;
     if (search) {
       const q = search.toLowerCase();
-      return (
-        r.users?.name?.toLowerCase().includes(q) ||
-        r.users?.email?.toLowerCase().includes(q) ||
-        r.reservation_code?.toLowerCase().includes(q)
-      );
+      return r.users?.name?.toLowerCase().includes(q) || r.users?.email?.toLowerCase().includes(q) || r.reservation_code?.toLowerCase().includes(q);
     }
     return true;
   });
@@ -87,6 +217,7 @@ export default function ReservationsPanel({ canEdit }: { canEdit: boolean }) {
     try {
       await api.delete(`/admin/reservations/${id}`);
       setAll((prev) => prev.map((r) => r.id === id ? { ...r, status: "cancelled" } : r));
+      setSelected((prev) => prev?.id === id ? { ...prev, status: "cancelled" } : prev);
       toast({ title: "Reservation cancelled" });
     } catch {
       toast({ title: "Failed to cancel reservation", variant: "destructive" });
@@ -101,6 +232,7 @@ export default function ReservationsPanel({ canEdit }: { canEdit: boolean }) {
       await api.post(`/admin/reservations/${id}/checkin`);
       const now = new Date().toISOString();
       setAll((prev) => prev.map((r) => r.id === id ? { ...r, checked_in_at: now } : r));
+      setSelected((prev) => prev?.id === id ? { ...prev, checked_in_at: now } : prev);
       toast({ title: "Vendor checked in ✓" });
     } catch (e: any) {
       toast({ title: e.message || "Check-in failed", variant: "destructive" });
@@ -158,7 +290,7 @@ export default function ReservationsPanel({ canEdit }: { canEdit: boolean }) {
             ) : filtered.map((r) => {
               const meta = STATUS_META[r.status] ?? { label: r.status, cls: "bg-zinc-100 text-zinc-600" };
               return (
-                <tr key={r.id} className="hover:bg-secondary/20 transition-colors">
+                <tr key={r.id} className="hover:bg-secondary/20 transition-colors cursor-pointer" onClick={() => setSelected(r)}>
                   <td className="px-4 py-3">
                     <p className="font-medium leading-tight">{r.users?.name ?? "—"}</p>
                     <p className="text-xs text-muted-foreground">{r.users?.email}</p>
@@ -170,39 +302,21 @@ export default function ReservationsPanel({ canEdit }: { canEdit: boolean }) {
                   </td>
                   <td className="px-4 py-3 font-mono text-xs">{r.reservation_code}</td>
                   <td className="px-4 py-3">
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${meta.cls}`}>
-                      {meta.label}
-                    </span>
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${meta.cls}`}>{meta.label}</span>
                   </td>
-                  <td className="px-4 py-3 text-xs">
+                  <td className="px-4 py-3 text-xs" onClick={(e) => e.stopPropagation()}>
                     {r.checked_in_at ? (
                       <span className="text-green-600 font-medium">✓ {new Date(r.checked_in_at).toLocaleTimeString()}</span>
                     ) : r.status === "confirmed" ? (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-7 text-xs gap-1"
-                        disabled={checkingIn === r.id}
-                        onClick={() => checkIn(r.id)}
-                      >
-                        <UserCheck className="w-3 h-3" />
-                        {checkingIn === r.id ? "…" : "Check in"}
+                      <Button variant="outline" size="sm" className="h-7 text-xs gap-1" disabled={checkingIn === r.id} onClick={() => checkIn(r.id)}>
+                        <UserCheck className="w-3 h-3" />{checkingIn === r.id ? "…" : "Check in"}
                       </Button>
                     ) : "—"}
                   </td>
-                  <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">
-                    {new Date(r.created_at).toLocaleDateString()}
-                  </td>
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">{new Date(r.created_at).toLocaleDateString()}</td>
+                  <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                     {canEdit && !["cancelled", "expired"].includes(r.status) && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 w-7 p-0 text-destructive hover:text-destructive"
-                        disabled={cancelling === r.id}
-                        onClick={() => cancel(r.id)}
-                        title="Cancel reservation"
-                      >
+                      <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-destructive hover:text-destructive" disabled={cancelling === r.id} onClick={() => cancel(r.id)} title="Cancel">
                         {cancelling === r.id ? "…" : <X className="w-4 h-4" />}
                       </Button>
                     )}
@@ -223,8 +337,11 @@ export default function ReservationsPanel({ canEdit }: { canEdit: boolean }) {
         ) : filtered.map((r) => {
           const meta = STATUS_META[r.status] ?? { label: r.status, cls: "bg-zinc-100 text-zinc-600" };
           return (
-            <div key={r.id} className="rounded-xl border border-border bg-card p-4 space-y-3">
-              {/* Header */}
+            <button
+              key={r.id}
+              className="w-full text-left rounded-xl border border-border bg-card p-4 space-y-2 transition-colors active:bg-secondary/60"
+              onClick={() => setSelected(r)}
+            >
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
                   <p className="font-semibold text-sm leading-tight truncate">{r.users?.name ?? "—"}</p>
@@ -234,66 +351,33 @@ export default function ReservationsPanel({ canEdit }: { canEdit: boolean }) {
                   {meta.label}
                 </span>
               </div>
-
-              {/* Details grid */}
-              <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+              <div className="flex items-center justify-between text-sm">
                 <div>
-                  <p className="text-xs text-muted-foreground uppercase tracking-wide">Stall</p>
-                  <p className="font-semibold">#{r.stalls?.stall_number ?? "—"}</p>
-                  <p className="text-xs text-muted-foreground capitalize">{r.stalls?.package}</p>
+                  <span className="font-bold">Stall #{r.stalls?.stall_number ?? "—"}</span>
+                  <span className="text-muted-foreground text-xs ml-2 capitalize">{r.stalls?.package}</span>
                 </div>
-                <div>
-                  <p className="text-xs text-muted-foreground uppercase tracking-wide">Exhibition</p>
-                  <p className="text-xs font-medium leading-snug">{r.stalls?.exhibitions?.name ?? "—"}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground uppercase tracking-wide">Code</p>
-                  <p className="font-mono text-xs">{r.reservation_code}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground uppercase tracking-wide">Date</p>
-                  <p className="text-xs">{new Date(r.created_at).toLocaleDateString()}</p>
-                </div>
+                <ChevronRight className="w-4 h-4 text-muted-foreground" />
               </div>
-
-              {/* Check-in status */}
-              {r.checked_in_at ? (
-                <p className="text-xs text-green-600 font-medium">✓ Checked in at {new Date(r.checked_in_at).toLocaleTimeString()}</p>
-              ) : null}
-
-              {/* Actions */}
-              {(r.status === "confirmed" && !r.checked_in_at) || (canEdit && !["cancelled", "expired"].includes(r.status)) ? (
-                <div className="flex items-center gap-2 pt-1 border-t border-border">
-                  {r.status === "confirmed" && !r.checked_in_at && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-8 text-xs gap-1.5 flex-1"
-                      disabled={checkingIn === r.id}
-                      onClick={() => checkIn(r.id)}
-                    >
-                      <UserCheck className="w-3.5 h-3.5" />
-                      {checkingIn === r.id ? "Checking in…" : "Check in"}
-                    </Button>
-                  )}
-                  {canEdit && !["cancelled", "expired"].includes(r.status) && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-8 text-xs text-destructive hover:text-destructive gap-1.5"
-                      disabled={cancelling === r.id}
-                      onClick={() => cancel(r.id)}
-                    >
-                      <X className="w-3.5 h-3.5" />
-                      {cancelling === r.id ? "Cancelling…" : "Cancel"}
-                    </Button>
-                  )}
-                </div>
-              ) : null}
-            </div>
+              {r.checked_in_at && (
+                <p className="text-xs text-green-600 font-medium">✓ Checked in</p>
+              )}
+            </button>
           );
         })}
       </div>
+
+      {/* Detail modal */}
+      {selected && (
+        <ReservationDetailModal
+          reservation={selected}
+          canEdit={canEdit}
+          onClose={() => setSelected(null)}
+          onCheckIn={checkIn}
+          onCancel={cancel}
+          checkingIn={checkingIn}
+          cancelling={cancelling}
+        />
+      )}
     </div>
   );
 }

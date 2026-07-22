@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { api } from "@/lib/apiClient";
-import { Search, X } from "lucide-react";
+import { Search, X, ChevronRight } from "lucide-react";
 
 interface Vendor {
   id: string;
@@ -79,7 +79,7 @@ export default function VendorsPanel() {
             ) : filtered.map((v) => {
               const activeRes = v.reservations?.find((r) => ["confirmed", "held"].includes(r.status));
               return (
-                <tr key={v.id} className="hover:bg-secondary/20 transition-colors">
+                <tr key={v.id} className="hover:bg-secondary/20 transition-colors cursor-pointer" onClick={() => setSelected(v)}>
                   <td className="px-4 py-3">
                     <p className="font-medium">{v.name}</p>
                     <p className="text-xs text-muted-foreground">{v.email}</p>
@@ -89,12 +89,8 @@ export default function VendorsPanel() {
                     {activeRes ? (
                       <div>
                         <p className="font-semibold text-sm">Stall #{activeRes.stalls?.stall_number ?? "?"}</p>
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_CLS[activeRes.status] ?? ""}`}>
-                          {activeRes.status}
-                        </span>
-                        {activeRes.checked_in_at && (
-                          <p className="text-xs text-green-600 mt-0.5">✓ Checked in</p>
-                        )}
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_CLS[activeRes.status] ?? ""}`}>{activeRes.status}</span>
+                        {activeRes.checked_in_at && <p className="text-xs text-green-600 mt-0.5">✓ Checked in</p>}
                       </div>
                     ) : (
                       <span className="text-xs text-muted-foreground">No active reservation</span>
@@ -102,7 +98,7 @@ export default function VendorsPanel() {
                   </td>
                   <td className="px-4 py-3 text-xs text-muted-foreground">{new Date(v.created_at).toLocaleDateString()}</td>
                   <td className="px-4 py-3">
-                    <button onClick={() => setSelected(v)} className="text-xs text-primary hover:underline">
+                    <button className="text-xs text-primary hover:underline" onClick={(e) => { e.stopPropagation(); setSelected(v); }}>
                       View
                     </button>
                   </td>
@@ -122,78 +118,99 @@ export default function VendorsPanel() {
         ) : filtered.map((v) => {
           const activeRes = v.reservations?.find((r) => ["confirmed", "held"].includes(r.status));
           return (
-            <div key={v.id} className="rounded-xl border border-border bg-card p-4 space-y-3">
+            <button
+              key={v.id}
+              className="w-full text-left rounded-xl border border-border bg-card p-4 space-y-2 transition-colors active:bg-secondary/60"
+              onClick={() => setSelected(v)}
+            >
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
                   <p className="font-semibold text-sm leading-tight truncate">{v.name}</p>
                   <p className="text-xs text-muted-foreground truncate">{v.email}</p>
                   {v.phone && <p className="text-xs text-muted-foreground">{v.phone}</p>}
                 </div>
-                <button onClick={() => setSelected(v)} className="flex-shrink-0 text-xs text-primary hover:underline font-medium">
-                  View
-                </button>
+                <ChevronRight className="w-4 h-4 text-muted-foreground flex-shrink-0 mt-0.5" />
               </div>
-
-              <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm">
-                <div>
-                  <p className="text-xs text-muted-foreground uppercase tracking-wide">Stall</p>
-                  {activeRes ? (
-                    <>
-                      <p className="font-semibold">#{activeRes.stalls?.stall_number ?? "?"}</p>
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_CLS[activeRes.status] ?? ""}`}>
-                        {activeRes.status}
-                      </span>
-                      {activeRes.checked_in_at && <p className="text-xs text-green-600 mt-0.5">✓ Checked in</p>}
-                    </>
-                  ) : (
-                    <p className="text-xs text-muted-foreground">No reservation</p>
-                  )}
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground uppercase tracking-wide">Registered</p>
-                  <p className="text-xs">{new Date(v.created_at).toLocaleDateString()}</p>
-                </div>
+              <div className="text-sm">
+                {activeRes ? (
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold">Stall #{activeRes.stalls?.stall_number ?? "?"}</span>
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_CLS[activeRes.status] ?? ""}`}>{activeRes.status}</span>
+                    {activeRes.checked_in_at && <span className="text-xs text-green-600">✓ Checked in</span>}
+                  </div>
+                ) : (
+                  <span className="text-xs text-muted-foreground">No active reservation</span>
+                )}
               </div>
-            </div>
+            </button>
           );
         })}
       </div>
 
-      {/* Vendor detail modal */}
+      {/* Detail modal (shared for mobile tap and desktop View) */}
       {selected && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setSelected(null)}>
-          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center" onClick={() => setSelected(null)}>
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
           <div
-            className="relative bg-background rounded-2xl border border-border shadow-xl w-full max-w-md p-6 space-y-4 max-h-[80vh] overflow-y-auto"
+            className="relative bg-background w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl border border-border shadow-2xl max-h-[90vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
-            <button onClick={() => setSelected(null)} className="absolute top-4 right-4 text-muted-foreground">
-              <X className="w-4 h-4" />
-            </button>
-            <div>
-              <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Vendor Details</p>
-              <h3 className="font-display text-xl font-bold">{selected.name}</h3>
-              <p className="text-sm text-muted-foreground">{selected.email}</p>
-              {selected.phone && <p className="text-sm text-muted-foreground">{selected.phone}</p>}
+            {/* Handle bar (mobile) */}
+            <div className="flex justify-center pt-3 sm:hidden">
+              <div className="w-10 h-1 rounded-full bg-border" />
             </div>
-            <div>
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Reservations ({selected.reservations?.length ?? 0})</p>
-              {(selected.reservations ?? []).length === 0 ? (
-                <p className="text-sm text-muted-foreground">No reservations yet.</p>
-              ) : (
-                <div className="space-y-2">
-                  {(selected.reservations ?? []).map((r) => (
-                    <div key={r.id} className="rounded-lg border border-border p-3 text-sm">
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="font-mono text-xs">{r.reservation_code}</span>
-                        <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_CLS[r.status] ?? ""}`}>{r.status}</span>
+
+            {/* Header */}
+            <div className="flex items-start justify-between px-5 pt-4 pb-3 border-b border-border">
+              <div>
+                <p className="text-xs text-muted-foreground uppercase tracking-wide">Vendor Details</p>
+                <h3 className="font-display text-xl font-bold leading-tight">{selected.name}</h3>
+              </div>
+              <button onClick={() => setSelected(null)} className="text-muted-foreground hover:text-foreground p-1">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="px-5 py-4 space-y-5">
+              {/* Contact */}
+              <div className="rounded-xl border border-border p-4 space-y-1">
+                <p className="text-xs text-muted-foreground uppercase tracking-wide mb-2">Contact</p>
+                <p className="text-sm">{selected.email}</p>
+                {selected.phone && (
+                  <a href={`tel:${selected.phone}`} className="text-sm text-primary hover:underline block">{selected.phone}</a>
+                )}
+                <p className="text-xs text-muted-foreground mt-1">Registered {new Date(selected.created_at).toLocaleDateString()}</p>
+              </div>
+
+              {/* Reservations */}
+              <div>
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">
+                  Reservations ({selected.reservations?.length ?? 0})
+                </p>
+                {(selected.reservations ?? []).length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No reservations yet.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {(selected.reservations ?? []).map((r) => (
+                      <div key={r.id} className="rounded-xl border border-border p-4 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="font-mono text-xs text-muted-foreground">{r.reservation_code}</span>
+                          <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_CLS[r.status] ?? ""}`}>{r.status}</span>
+                        </div>
+                        {r.stalls && (
+                          <div>
+                            <span className="font-semibold">Stall #{r.stalls.stall_number}</span>
+                            <span className="text-muted-foreground text-sm ml-2 capitalize">{r.stalls.package}</span>
+                          </div>
+                        )}
+                        {r.checked_in_at && (
+                          <p className="text-green-600 text-xs">✓ Checked in {new Date(r.checked_in_at).toLocaleString()}</p>
+                        )}
                       </div>
-                      {r.stalls && <p className="text-muted-foreground">Stall #{r.stalls.stall_number} · {r.stalls.package}</p>}
-                      {r.checked_in_at && <p className="text-green-600 text-xs mt-1">✓ Checked in {new Date(r.checked_in_at).toLocaleString()}</p>}
-                    </div>
-                  ))}
-                </div>
-              )}
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
