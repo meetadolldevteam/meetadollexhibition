@@ -73,7 +73,7 @@ function FloorPlanImage() {
         const now = Date.now();
         if (now - lastTapRef.current < 300) {
           scaleRef.current = 1;
-          img.style.transform = "scale(1)";
+          (img as HTMLImageElement).style.transform = "scale(1)";
         }
         lastTapRef.current = now;
       }
@@ -85,8 +85,8 @@ function FloorPlanImage() {
         const newDist = getTouchDist(e.touches);
         const ratio = newDist / lastDistRef.current;
         scaleRef.current = Math.min(4, Math.max(1, scaleRef.current * ratio));
-        img.style.transform = `scale(${scaleRef.current})`;
-        img.style.transformOrigin = "center center";
+        (img as HTMLImageElement).style.transform = `scale(${scaleRef.current})`;
+        (img as HTMLImageElement).style.transformOrigin = "center center";
         lastDistRef.current = newDist;
       }
     }
@@ -111,10 +111,10 @@ function FloorPlanImage() {
   return (
     <div
       style={{
-        overflow: "auto",
-        WebkitOverflowScrolling: "touch" as unknown as string,
+        overflow: "hidden",
         borderRadius: "0.75rem",
         border: "1px solid var(--border)",
+        lineHeight: 0,
       }}
     >
       <img
@@ -127,11 +127,8 @@ function FloorPlanImage() {
           display: "block",
           width: "100%",
           height: "auto",
-          objectFit: "contain",
-          maxWidth: "100%",
           userSelect: "none",
-          willChange: "transform",
-          transition: "transform 0.05s linear",
+          WebkitUserSelect: "none",
         }}
       />
     </div>
@@ -399,15 +396,17 @@ export default function StallPickerModal({ open, onOpenChange, defaultTierFilter
 
                     const isAvailable = stall.status === "available";
                     const isTaken = !isAvailable;
-                    const isSelected = selected?.stall_number === n;
+                    const isSelected = Number(selected?.stall_number) === n;
                     const isRestricted = !canVendorBookStall(user.vendor_category, stall.category);
                     const color = tierColor(stall.price);
+                    const isTier2 = stall.price === TIER2_PRICE;
                     const catShort = stall.category === "Food" ? "Food" : "F&O";
 
-                    let cellStyle: React.CSSProperties;
+                    let baseStyle: React.CSSProperties;
+                    let selClass = "";
 
                     if (isTaken) {
-                      cellStyle = {
+                      baseStyle = {
                         backgroundColor: "#d4d4d8",
                         border: "2px solid #d4d4d8",
                         color: "#71717a",
@@ -415,7 +414,7 @@ export default function StallPickerModal({ open, onOpenChange, defaultTierFilter
                         cursor: "not-allowed",
                       };
                     } else if (isRestricted) {
-                      cellStyle = {
+                      baseStyle = {
                         backgroundColor: "#fafafa",
                         border: "2px solid #e4e4e7",
                         color: "#d4d4d8",
@@ -423,18 +422,10 @@ export default function StallPickerModal({ open, onOpenChange, defaultTierFilter
                         cursor: "not-allowed",
                       };
                     } else if (isSelected) {
-                      cellStyle = {
-                        backgroundColor: color,
-                        border: `3px solid ${color}`,
-                        color: "#ffffff",
-                        transform: "scale(1.15)",
-                        boxShadow: `0 4px 16px rgba(0,0,0,0.3)`,
-                        position: "relative",
-                        zIndex: 10,
-                        cursor: "pointer",
-                      };
+                      baseStyle = { cursor: "pointer" };
+                      selClass = isTier2 ? "stall-selected-t2" : "stall-selected-t1";
                     } else {
-                      cellStyle = {
+                      baseStyle = {
                         backgroundColor: "#ffffff",
                         border: `2px solid ${color}`,
                         color: "#27272a",
@@ -448,15 +439,16 @@ export default function StallPickerModal({ open, onOpenChange, defaultTierFilter
                         disabled={isTaken || isRestricted || step === "holding"}
                         onClick={() => { if (isAvailable && !isRestricted && stall) setSelected(stall); }}
                         title={isRestricted ? `Not available for your vendor type (${user.vendor_category})` : `V${n} - ${stall.category} - ₦${stall.price.toLocaleString()}`}
+                        className={selClass}
                         style={{
-                          ...cellStyle,
+                          ...baseStyle,
                           aspectRatio: "1",
                           borderRadius: "6px",
                           display: "flex",
                           flexDirection: "column",
                           alignItems: "center",
                           justifyContent: "center",
-                          transition: "all 0.15s ease",
+                          transition: "transform 0.12s ease, box-shadow 0.12s ease, background-color 0.12s ease",
                           userSelect: "none",
                           WebkitUserSelect: "none",
                           padding: 0,
@@ -469,16 +461,17 @@ export default function StallPickerModal({ open, onOpenChange, defaultTierFilter
                               position: "absolute",
                               top: "2px",
                               right: "2px",
-                              width: "8px",
-                              height: "8px",
+                              width: "9px",
+                              height: "9px",
                               color: "#ffffff",
                               strokeWidth: 3,
+                              flexShrink: 0,
                             }}
                           />
                         )}
-                        <span style={{ fontSize: "10px", fontWeight: 700, lineHeight: 1.1 }}>V{n}</span>
+                        <span style={{ fontSize: "10px", fontWeight: 700, lineHeight: 1.1, color: "inherit" }}>V{n}</span>
                         {!isSelected && (
-                          <span style={{ fontSize: "6px", lineHeight: 1.1, opacity: 0.65 }}>{catShort}</span>
+                          <span style={{ fontSize: "6px", lineHeight: 1.1, opacity: 0.65, color: "inherit" }}>{catShort}</span>
                         )}
                       </button>
                     );
