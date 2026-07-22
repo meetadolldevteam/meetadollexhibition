@@ -1,6 +1,6 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Check, Loader2, Map as MapIcon, ChevronDown, ChevronUp } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { api, ApiError } from "@/lib/apiClient";
@@ -37,17 +37,105 @@ function tierColor(price: number): string {
 }
 
 function canVendorBookStall(vendorCategory: string | null | undefined, stallCategory: string | null | undefined): boolean {
-  if (!vendorCategory || !stallCategory) return true; // no restriction if either is unset
+  if (!vendorCategory || !stallCategory) return true;
   if (vendorCategory === "food") return stallCategory === "Food";
   if (vendorCategory === "fashion" || vendorCategory === "others") return stallCategory === "Fashion & Others";
-  return true; // unknown vendor_category — allow all stalls
+  return true;
 }
 
 function vendorAllowedCategory(vendorCategory: string | null | undefined): string | null {
   if (!vendorCategory) return null;
   if (vendorCategory === "food") return "Food";
   if (vendorCategory === "fashion" || vendorCategory === "others") return "Fashion & Others";
-  return null; // unknown vendor_category — no filter applied
+  return null;
+}
+
+function FloorPlanImage() {
+  const imgRef = useRef<HTMLImageElement>(null);
+  const scaleRef = useRef(1);
+  const lastDistRef = useRef<number | null>(null);
+  const lastTapRef = useRef<number>(0);
+
+  useEffect(() => {
+    const img = imgRef.current;
+    if (!img) return;
+
+    function getTouchDist(touches: TouchList): number {
+      const dx = touches[0].clientX - touches[1].clientX;
+      const dy = touches[0].clientY - touches[1].clientY;
+      return Math.sqrt(dx * dx + dy * dy);
+    }
+
+    function onTouchStart(e: TouchEvent) {
+      if (e.touches.length === 2) {
+        lastDistRef.current = getTouchDist(e.touches);
+      } else if (e.touches.length === 1) {
+        const now = Date.now();
+        if (now - lastTapRef.current < 300) {
+          scaleRef.current = 1;
+          img.style.transform = "scale(1)";
+        }
+        lastTapRef.current = now;
+      }
+    }
+
+    function onTouchMove(e: TouchEvent) {
+      if (e.touches.length === 2 && lastDistRef.current !== null) {
+        e.preventDefault();
+        const newDist = getTouchDist(e.touches);
+        const ratio = newDist / lastDistRef.current;
+        scaleRef.current = Math.min(4, Math.max(1, scaleRef.current * ratio));
+        img.style.transform = `scale(${scaleRef.current})`;
+        img.style.transformOrigin = "center center";
+        lastDistRef.current = newDist;
+      }
+    }
+
+    function onTouchEnd(e: TouchEvent) {
+      if (e.touches.length < 2) {
+        lastDistRef.current = null;
+      }
+    }
+
+    img.addEventListener("touchstart", onTouchStart, { passive: true });
+    img.addEventListener("touchmove", onTouchMove, { passive: false });
+    img.addEventListener("touchend", onTouchEnd, { passive: true });
+
+    return () => {
+      img.removeEventListener("touchstart", onTouchStart);
+      img.removeEventListener("touchmove", onTouchMove);
+      img.removeEventListener("touchend", onTouchEnd);
+    };
+  }, []);
+
+  return (
+    <div
+      style={{
+        overflow: "auto",
+        WebkitOverflowScrolling: "touch" as unknown as string,
+        borderRadius: "0.75rem",
+        border: "1px solid var(--border)",
+      }}
+    >
+      <img
+        ref={imgRef}
+        src="/images/floorplan.jpg"
+        alt="Stall layout floor plan"
+        draggable={false}
+        loading="lazy"
+        style={{
+          display: "block",
+          width: "100%",
+          height: "auto",
+          objectFit: "contain",
+          maxWidth: "100%",
+          userSelect: "none",
+          willChange: "transform",
+          transition: "transform 0.05s linear",
+        }}
+      />
+    </div>
+  );
 }
 
 export default function StallPickerModal({ open, onOpenChange, defaultTierFilter }: Props) {
@@ -133,7 +221,6 @@ export default function StallPickerModal({ open, onOpenChange, defaultTierFilter
 
   const stallMap = new Map(stalls.map((s) => [Number(s.stall_number), s]));
   const totalStalls = stalls.length > 0 ? Math.max(...stalls.map((s) => s.stall_number)) : 100;
-
   const allNumbers = Array.from({ length: totalStalls }, (_, i) => i + 1);
 
   const displayNumbers = allNumbers.filter((n) => {
@@ -276,8 +363,9 @@ export default function StallPickerModal({ open, onOpenChange, defaultTierFilter
               )}
             </div>
 
-            {/* Stall grid */}
+            {/* Stall grid + floor plan */}
             <div className="overflow-y-auto flex-1 -mx-2 px-2">
+
               {/* Collapsible floor plan */}
               <div className="mb-3">
                 <button
@@ -289,32 +377,14 @@ export default function StallPickerModal({ open, onOpenChange, defaultTierFilter
                   {showFloorPlan ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
                 </button>
                 {showFloorPlan && (
-                  <div
-                    className="rounded-xl border border-border"
-                    style={{
-                      overflow: "auto",
-                      WebkitOverflowScrolling: "touch",
-                      touchAction: "pan-x pan-y pinch-zoom",
-                    } as React.CSSProperties}
-                  >
-                    <img
-                      src="/images/stall-guide.png"
-                      alt="Stall layout floor plan"
-                      className="block"
-                      style={{
-                        minWidth: "900px",
-                        width: "100%",
-                        height: "auto",
-                        touchAction: "pan-x pan-y pinch-zoom",
-                        userSelect: "none",
-                      } as React.CSSProperties}
-                      draggable={false}
-                      loading="lazy"
-                    />
+                  <div className="mb-2">
+                    <p className="text-[10px] text-muted-foreground mb-1">Pinch to zoom · Double-tap to reset</p>
+                    <FloorPlanImage />
                   </div>
                 )}
               </div>
 
+              {/* Stall number grid */}
               {loadingStalls ? (
                 <div className="flex items-center justify-center py-12">
                   <Loader2 className="w-6 h-6 animate-spin text-primary" />
@@ -332,51 +402,83 @@ export default function StallPickerModal({ open, onOpenChange, defaultTierFilter
                     const isSelected = selected?.stall_number === n;
                     const isRestricted = !canVendorBookStall(user.vendor_category, stall.category);
                     const color = tierColor(stall.price);
-                    const catShort = stall.category === "Food" ? "Food" : "Fashion & Others";
+                    const catShort = stall.category === "Food" ? "Food" : "F&O";
 
-                    const baseClass = "aspect-square rounded-md text-center flex flex-col items-center justify-center cursor-pointer select-none transition-all duration-150";
-
-                    let cellClass = baseClass + " ";
-                    let cellStyle: React.CSSProperties = {};
+                    let cellStyle: React.CSSProperties;
 
                     if (isTaken) {
-                      cellClass += "bg-zinc-300 text-zinc-500 cursor-not-allowed opacity-60";
-                      cellStyle = { border: "2px solid #d4d4d8" };
+                      cellStyle = {
+                        backgroundColor: "#d4d4d8",
+                        border: "2px solid #d4d4d8",
+                        color: "#71717a",
+                        opacity: 0.6,
+                        cursor: "not-allowed",
+                      };
                     } else if (isRestricted) {
-                      cellClass += "bg-zinc-50 text-zinc-300 cursor-not-allowed opacity-40";
-                      cellStyle = { border: "2px solid #e4e4e7" };
+                      cellStyle = {
+                        backgroundColor: "#fafafa",
+                        border: "2px solid #e4e4e7",
+                        color: "#d4d4d8",
+                        opacity: 0.4,
+                        cursor: "not-allowed",
+                      };
                     } else if (isSelected) {
-                      cellClass += "text-white relative z-10";
                       cellStyle = {
                         backgroundColor: color,
                         border: `3px solid ${color}`,
+                        color: "#ffffff",
                         transform: "scale(1.15)",
-                        boxShadow: `0 4px 16px 0 ${color}66, 0 2px 6px 0 rgba(0,0,0,0.18)`,
+                        boxShadow: `0 4px 16px rgba(0,0,0,0.3)`,
+                        position: "relative",
+                        zIndex: 10,
+                        cursor: "pointer",
                       };
                     } else {
-                      cellClass += "bg-white text-zinc-800 hover:scale-105 hover:shadow-sm";
-                      cellStyle = { border: `2px solid ${color}` };
+                      cellStyle = {
+                        backgroundColor: "#ffffff",
+                        border: `2px solid ${color}`,
+                        color: "#27272a",
+                        cursor: "pointer",
+                      };
                     }
 
                     return (
                       <button
                         key={n}
                         disabled={isTaken || isRestricted || step === "holding"}
-                        onClick={() => isAvailable && !isRestricted && stall && setSelected(stall)}
-                        className={cellClass}
-                        style={cellStyle}
+                        onClick={() => { if (isAvailable && !isRestricted && stall) setSelected(stall); }}
                         title={isRestricted ? `Not available for your vendor type (${user.vendor_category})` : `V${n} - ${stall.category} - ₦${stall.price.toLocaleString()}`}
+                        style={{
+                          ...cellStyle,
+                          aspectRatio: "1",
+                          borderRadius: "6px",
+                          display: "flex",
+                          flexDirection: "column",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          transition: "all 0.15s ease",
+                          userSelect: "none",
+                          WebkitUserSelect: "none",
+                          padding: 0,
+                          outline: "none",
+                        }}
                       >
-                        {isSelected ? (
-                          <>
-                            <Check className="w-3 h-3 mb-0.5 shrink-0" />
-                            <span className="text-[9px] font-bold leading-tight">V{n}</span>
-                          </>
-                        ) : (
-                          <>
-                            <span className="text-[10px] font-bold leading-tight">V{n}</span>
-                            <span className="text-[7px] leading-tight opacity-70">{catShort}</span>
-                          </>
+                        {isSelected && (
+                          <Check
+                            style={{
+                              position: "absolute",
+                              top: "2px",
+                              right: "2px",
+                              width: "8px",
+                              height: "8px",
+                              color: "#ffffff",
+                              strokeWidth: 3,
+                            }}
+                          />
+                        )}
+                        <span style={{ fontSize: "10px", fontWeight: 700, lineHeight: 1.1 }}>V{n}</span>
+                        {!isSelected && (
+                          <span style={{ fontSize: "6px", lineHeight: 1.1, opacity: 0.65 }}>{catShort}</span>
                         )}
                       </button>
                     );
