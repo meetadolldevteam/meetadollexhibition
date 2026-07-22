@@ -55,7 +55,7 @@ const Navbar = () => {
           <div className="flex items-center gap-2 ml-1">
             {user.role === "admin" && (
               <Button asChild size="sm" variant="ghost" className="rounded-full gap-1.5 text-xs">
-                <Link to="/admin"><ShieldCheck className="w-3.5 h-3.5" /> Admin</Link>
+                <Link to="/mda-control"><ShieldCheck className="w-3.5 h-3.5" /> Admin</Link>
               </Button>
             )}
             <Button asChild size="sm" variant="ghost" className="rounded-full gap-1.5 text-xs">
@@ -111,7 +111,7 @@ const Navbar = () => {
               </Link>
               {user.role === "admin" && (
                 <Link
-                  to="/admin"
+                  to="/mda-control"
                   onClick={() => setMobileOpen(false)}
                   className="text-lg font-medium text-muted-foreground hover:text-foreground transition-colors"
                 >

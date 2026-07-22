@@ -64,7 +64,7 @@ const PAGE_META: Record<string, PageMetaConfig> = {
     description: "Complete your business profile to reserve a stall at the Meetadoll Exhibition.",
     noIndex: true,
   },
-  "/admin": {
+  "/mda-control": {
     title: "Admin Dashboard | Meetadoll Exhibition",
     description: "Meetadoll Exhibition administration dashboard.",
     noIndex: true,
@@ -139,7 +139,7 @@ const App = () => {
               <Route path="/payment/callback" element={<PaymentCallbackPage />} />
               <Route path="/my-reservations" element={<MyReservationsPage />} />
               <Route path="/business-profile" element={<BusinessProfilePage />} />
-              <Route path="/admin" element={<AdminDashboardPage />} />
+              <Route path="/mda-control" element={<AdminDashboardPage />} />
               <Route path="/terms" element={<TermsPage />} />
               <Route path="/privacy" element={<PrivacyPage />} />
               {import.meta.env.DEV && <Route path="/dev-auth" element={<DevAuthPage />} />}

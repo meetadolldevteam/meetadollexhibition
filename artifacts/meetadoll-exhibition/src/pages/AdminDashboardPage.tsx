@@ -43,7 +43,7 @@ export default function AdminDashboardPage() {
   }
 
   if (!user || !ALLOWED_ROLES.includes(user.role)) {
-    navigate(user ? "/" : "/login?next=/admin", { replace: true });
+    navigate(user ? "/" : "/login?next=/mda-control", { replace: true });
     return null;
   }
 
