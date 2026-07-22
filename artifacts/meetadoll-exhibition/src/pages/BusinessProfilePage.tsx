@@ -68,8 +68,8 @@ export default function BusinessProfilePage() {
     e.preventDefault();
     setError("");
 
-    if (!businessName.trim() || businessName.trim().length < 2) {
-      setError("Business name must be at least 2 characters.");
+    if (!businessName.trim()) {
+      setError("Business name is required.");
       return;
     }
     if (!businessCategory) {
@@ -85,14 +85,8 @@ export default function BusinessProfilePage() {
       if (businessPhone.trim()) {
         fd.append("business_phone", businessPhone.trim());
       }
-      const cleanInstagram = instagramUsername
-        .replace(/^https?:\/\/(www\.)?instagram\.com\/?/, "")
-        .replace(/^instagram\.com\/?/, "")
-        .replace(/\/$/, "")
-        .replace(/^@+/, "")
-        .trim();
-      if (cleanInstagram) {
-        fd.append("instagram_username", cleanInstagram);
+      if (instagramUsername) {
+        fd.append("instagram_username", instagramUsername);
       }
       if (logoFile) {
         fd.append("business_logo", logoFile);
@@ -211,16 +205,12 @@ export default function BusinessProfilePage() {
               <Label htmlFor="instagram_username">
                 Instagram username <span className="text-muted-foreground text-xs">(optional)</span>
               </Label>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm select-none">@</span>
-                <Input
-                  id="instagram_username"
-                  value={instagramUsername}
-                  onChange={(e) => setInstagramUsername(e.target.value.replace(/^@/, ""))}
-                  placeholder="amirascloset"
-                  className="pl-7"
-                />
-              </div>
+              <Input
+                id="instagram_username"
+                value={instagramUsername}
+                onChange={(e) => setInstagramUsername(e.target.value)}
+                placeholder="@amirascloset"
+              />
             </div>
 
             <div className="flex flex-col gap-1.5">

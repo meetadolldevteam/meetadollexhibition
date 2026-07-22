@@ -66,11 +66,7 @@ router.post(
     body("name")
       .trim()
       .notEmpty()
-      .withMessage("Name is required")
-      .isLength({ min: 2, max: 100 })
-      .withMessage("Name must be between 2 and 100 characters")
-      .matches(/^[\p{L}\s'.\-]+$/u)
-      .withMessage("Name must contain letters only"),
+      .withMessage("Name is required"),
     body("phone")
       .optional({ nullable: true, checkFalsy: true })
       .customSanitizer((val: string) =>
@@ -97,9 +93,7 @@ router.post(
     body("business_name")
       .trim()
       .notEmpty()
-      .withMessage("Business name is required")
-      .isLength({ min: 2, max: 200 })
-      .withMessage("Business name must be at least 2 characters"),
+      .withMessage("Business name is required"),
 
     body("business_category")
       .trim()
@@ -121,17 +115,7 @@ router.post(
       }),
 
     body("instagram_username")
-      .optional({ nullable: true, checkFalsy: true })
-      .trim()
-      .customSanitizer((val: unknown) => {
-        if (typeof val !== "string" || !val) return "";
-        return val
-          .replace(/^https?:\/\/(www\.)?instagram\.com\/?/, "")
-          .replace(/^instagram\.com\/?/, "")
-          .replace(/\/$/, "")
-          .replace(/^@+/, "")
-          .trim();
-      }),
+      .optional({ nullable: true, checkFalsy: true }),
   ],
   validate,
   completeBusinessProfile
