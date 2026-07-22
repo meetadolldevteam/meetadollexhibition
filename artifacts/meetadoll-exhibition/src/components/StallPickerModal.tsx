@@ -22,9 +22,7 @@ interface Stall {
   category: string | null;
 }
 
-type Step = "picking" | "holding" | "held" | "paying";
-interface HeldInfo { reservationId: string; code: string; stallNumber: number; price: number; }
-
+type Step = "picking" | "paying";
 type StallFilter = "all" | "tier1" | "tier2" | "Fashion & Others" | "Food";
 
 const TIER1_COLOR = "#8B0000";
@@ -89,19 +87,13 @@ function FloorPlanImage() {
         const ratio = newDist / lastDistRef.current;
         scaleRef.current = Math.min(4, Math.max(1, scaleRef.current * ratio));
 
-        // Calculate the midpoint between the two fingers in client coords
         const midX = (t1.clientX + t2.clientX) / 2;
         const midY = (t1.clientY + t2.clientY) / 2;
 
-        // Convert to a percentage position relative to the image element.
-        // getBoundingClientRect returns the scaled bounding box; dividing by
-        // width/height gives the same percentage as the unscaled element
-        // because the ratio cancels out — so this is correct at any scale.
         const rect = (img as HTMLImageElement).getBoundingClientRect();
         const originX = Math.min(100, Math.max(0, ((midX - rect.left) / rect.width) * 100));
         const originY = Math.min(100, Math.max(0, ((midY - rect.top) / rect.height) * 100));
 
-        // Set origin first, then apply scale — both committed in the same frame
         (img as HTMLImageElement).style.transformOrigin = `${originX}% ${originY}%`;
         (img as HTMLImageElement).style.transform = `scale(${scaleRef.current})`;
         lastDistRef.current = newDist;
@@ -162,10 +154,10 @@ export default function StallPickerModal({ open, onOpenChange, defaultTierFilter
   const [loadingStalls, setLoadingStalls] = useState(false);
   const [selected, setSelected] = useState<Stall | null>(null);
   const [step, setStep] = useState<Step>("picking");
-  const [held, setHeld] = useState<HeldInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [stallFilter, setStallFilter] = useState<StallFilter>("all");
-  const [showFloorPlan, setShowFloorPlan] = useState(false);
+  // Floor plan starts expanded
+  const [showFloorPlan, setShowFloorPlan] = useState(true);
 
   useEffect(() => {
     if (open) {
@@ -199,37 +191,23 @@ export default function StallPickerModal({ open, onOpenChange, defaultTierFilter
       .finally(() => setLoadingStalls(false));
   }, [exhibitionId, open]);
 
-  const reset = () => { setSelected(null); setStep("picking"); setHeld(null); setError(null); };
+  const reset = () => { setSelected(null); setStep("picking"); setError(null); };
   const handleClose = (v: boolean) => { onOpenChange(v); if (!v) reset(); };
 
-  const handleHold = async () => {
+  // Single action: reserve the stall and redirect straight to Paystack
+  const handleReservePay = async () => {
     if (!selected || !user) return;
-    setError(null);
-    setStep("holding");
-    try {
-      const data = await api.post<{ reservation: { id: string; reservation_code: string } }>(
-        "/stalls/hold",
-        { stall_id: selected.id }
-      );
-      setHeld({ reservationId: data.reservation.id, code: data.reservation.reservation_code, stallNumber: selected.stall_number, price: selected.price });
-      setStep("held");
-      setStalls((prev) => prev.map((s) => s.id === selected.id ? { ...s, status: "held" } : s));
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Failed to hold stall. Please try again.");
-      setStep("picking");
-    }
-  };
-
-  const handlePay = async () => {
-    if (!held) return;
     setError(null);
     setStep("paying");
     try {
-      const data = await api.post<{ payment_link: string }>("/payments/initiate", { reservation_id: held.reservationId });
+      const data = await api.post<{ payment_link: string }>(
+        "/payments/initiate-direct",
+        { stall_id: selected.id }
+      );
       window.location.href = data.payment_link;
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Payment could not be initiated.");
-      setStep("held");
+      setError(err instanceof ApiError ? err.message : "Could not initiate payment. Please try again.");
+      setStep("picking");
     }
   };
 
@@ -310,15 +288,11 @@ export default function StallPickerModal({ open, onOpenChange, defaultTierFilter
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="bg-background border-border max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader>
-          <DialogTitle className="font-display text-2xl">
-            {step === "held" ? "Stall held!" : "Pick your stall"}
-          </DialogTitle>
+          <DialogTitle className="font-display text-2xl">Pick your stall</DialogTitle>
           <DialogDescription>
-            {step === "held"
-              ? `Stall V${held?.stallNumber} is held for 15 minutes. Complete payment to confirm.`
-              : allowedCat
+            {allowedCat
               ? `Showing ${allowedCat} stalls for your vendor type.`
-              : "Select an available stall then click Hold."}
+              : "Select an available stall, then click Reserve & Pay."}
           </DialogDescription>
         </DialogHeader>
 
@@ -328,224 +302,210 @@ export default function StallPickerModal({ open, onOpenChange, defaultTierFilter
           </div>
         )}
 
-        {(step === "held" || step === "paying") && held ? (
-          <div className="flex flex-col gap-4 py-2">
-            <div className="rounded-xl border border-border bg-secondary/30 p-4 text-sm space-y-1">
-              <p className="font-semibold">Reservation code: <span className="font-mono">{held.code}</span></p>
-              <p className="text-muted-foreground">Stall V{held.stallNumber} · <strong className="text-foreground">₦{held.price.toLocaleString()}</strong></p>
-              <p className="text-muted-foreground text-xs">Your stall is temporarily held. Pay now to lock it in.</p>
-            </div>
-            <Button className="rounded-full" onClick={handlePay} disabled={step === "paying"}>
-              {step === "paying" ? <><Loader2 className="w-4 h-4 animate-spin mr-2" />Redirecting...</> : "Pay now"}
-            </Button>
-            <Button variant="ghost" className="rounded-full" onClick={() => navigate("/my-reservations")}>
-              Pay later from My Reservations
-            </Button>
-          </div>
-        ) : (
-          <>
-            {exhibitions.length > 1 && (
-              <div className="flex gap-2 flex-wrap">
-                {exhibitions.map((e) => (
-                  <button
-                    key={e.id}
-                    onClick={() => setExhibitionId(e.id)}
-                    className={`text-xs rounded-full px-3 py-1 border transition-colors ${exhibitionId === e.id ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:text-foreground"}`}
-                  >
-                    {e.name}
-                  </button>
-                ))}
-              </div>
-            )}
-
-            {/* Filter tabs */}
-            <div className="flex items-center gap-1.5 flex-wrap">
-              {FILTER_TABS.map((tab) => (
+        <>
+          {exhibitions.length > 1 && (
+            <div className="flex gap-2 flex-wrap">
+              {exhibitions.map((e) => (
                 <button
-                  key={tab.value}
-                  onClick={() => setStallFilter(tab.value)}
-                  className={`text-xs rounded-full px-3 py-1.5 border font-medium transition-colors ${
-                    stallFilter === tab.value
-                      ? "bg-primary text-primary-foreground border-primary"
-                      : "border-border text-muted-foreground hover:text-foreground"
-                  }`}
+                  key={e.id}
+                  onClick={() => setExhibitionId(e.id)}
+                  className={`text-xs rounded-full px-3 py-1 border transition-colors ${exhibitionId === e.id ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:text-foreground"}`}
                 >
-                  {tab.label}
+                  {e.name}
                 </button>
               ))}
-              <span className="ml-auto text-xs text-muted-foreground">
-                {availableInView} available
-              </span>
             </div>
+          )}
 
-            {/* Legend */}
-            <div className="flex items-center gap-4 text-xs text-muted-foreground flex-wrap">
-              <span className="flex items-center gap-1.5">
-                <span className="w-3 h-3 rounded border-2 inline-block" style={{ borderColor: TIER1_COLOR }} />
-                Tier 1 - ₦250,000
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span className="w-3 h-3 rounded border-2 inline-block" style={{ borderColor: TIER2_COLOR }} />
-                Tier 2 - ₦210,000
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span className="w-3 h-3 rounded bg-zinc-300 inline-block" />
-                Taken
-              </span>
-              {allowedCat && (
-                <span className="flex items-center gap-1.5">
-                  <span className="w-3 h-3 rounded bg-zinc-100 border border-zinc-300 opacity-40 inline-block" />
-                  Not your category
-                </span>
-              )}
-            </div>
-
-            {/* Stall grid + floor plan */}
-            <div className="overflow-y-auto flex-1 -mx-2 px-2">
-
-              {/* Collapsible floor plan */}
-              <div className="mb-3">
-                <button
-                  onClick={() => setShowFloorPlan((v) => !v)}
-                  className="flex items-center gap-2 text-xs font-medium text-primary hover:opacity-80 transition-opacity mb-2"
-                >
-                  <MapIcon className="w-3.5 h-3.5 shrink-0" />
-                  {showFloorPlan ? "Hide floor plan" : "View floor plan"}
-                  {showFloorPlan ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-                </button>
-                {showFloorPlan && (
-                  <div className="mb-2">
-                    <p className="text-[10px] text-muted-foreground mb-1">Pinch to zoom · Double-tap to reset</p>
-                    <FloorPlanImage />
-                  </div>
-                )}
-              </div>
-
-              {/* Stall number grid */}
-              {loadingStalls ? (
-                <div className="flex items-center justify-center py-12">
-                  <Loader2 className="w-6 h-6 animate-spin text-primary" />
-                </div>
-              ) : stalls.length === 0 ? (
-                <p className="text-center text-muted-foreground py-12 text-sm">No stalls found for this exhibition.</p>
-              ) : (
-                <div className="grid grid-cols-5 sm:grid-cols-10 gap-1.5">
-                  {displayNumbers.map((n) => {
-                    const stall = stallMap.get(n);
-                    if (!stall) return null;
-
-                    const isAvailable = stall.status === "available";
-                    const isTaken = !isAvailable;
-                    const isSelected = Number(selected?.stall_number) === n;
-                    const isRestricted = !canVendorBookStall(user.vendor_category, stall.category);
-                    const color = tierColor(stall.price);
-                    const isTier2 = stall.price === TIER2_PRICE;
-                    const catShort = stall.category === "Food" ? "Food" : "F&O";
-
-                    let baseStyle: React.CSSProperties;
-                    let selClass = "";
-
-                    if (isTaken) {
-                      baseStyle = {
-                        backgroundColor: "#d4d4d8",
-                        border: "2px solid #d4d4d8",
-                        color: "#71717a",
-                        opacity: 0.6,
-                        cursor: "not-allowed",
-                      };
-                    } else if (isRestricted) {
-                      baseStyle = {
-                        backgroundColor: "#fafafa",
-                        border: "2px solid #e4e4e7",
-                        color: "#d4d4d8",
-                        opacity: 0.4,
-                        cursor: "not-allowed",
-                      };
-                    } else if (isSelected) {
-                      baseStyle = { cursor: "pointer" };
-                      selClass = isTier2 ? "stall-selected-t2" : "stall-selected-t1";
-                    } else {
-                      baseStyle = {
-                        backgroundColor: "#ffffff",
-                        border: `2px solid ${color}`,
-                        color: "#27272a",
-                        cursor: "pointer",
-                      };
-                    }
-
-                    return (
-                      <button
-                        key={n}
-                        disabled={isTaken || isRestricted || step === "holding"}
-                        onClick={() => { if (isAvailable && !isRestricted && stall) setSelected(stall); }}
-                        title={isRestricted ? `Not available for your vendor type (${user.vendor_category})` : `V${n} - ${stall.category} - ₦${stall.price.toLocaleString()}`}
-                        className={selClass}
-                        style={{
-                          ...baseStyle,
-                          aspectRatio: "1",
-                          borderRadius: "6px",
-                          display: "flex",
-                          flexDirection: "column",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          transition: "transform 0.12s ease, box-shadow 0.12s ease, background-color 0.12s ease",
-                          userSelect: "none",
-                          WebkitUserSelect: "none",
-                          padding: 0,
-                          outline: "none",
-                        }}
-                      >
-                        {isSelected && (
-                          <Check
-                            style={{
-                              position: "absolute",
-                              top: "2px",
-                              right: "2px",
-                              width: "9px",
-                              height: "9px",
-                              color: "#ffffff",
-                              strokeWidth: 3,
-                              flexShrink: 0,
-                            }}
-                          />
-                        )}
-                        <span style={{ fontSize: "10px", fontWeight: 700, lineHeight: 1.1, color: "inherit" }}>V{n}</span>
-                        {!isSelected && (
-                          <span style={{ fontSize: "6px", lineHeight: 1.1, opacity: 0.65, color: "inherit" }}>{catShort}</span>
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-
-            {/* Footer action bar */}
-            <div className="flex items-center justify-between pt-3 border-t border-border gap-3">
-              <div className="text-sm min-w-0">
-                {selected ? (
-                  <div className="flex flex-col">
-                    <span className="flex items-center gap-1.5 font-medium" style={{ color: tierColor(selected.price) }}>
-                      <Check className="w-4 h-4 shrink-0" /> V{selected.stall_number} - {selected.category}
-                    </span>
-                    <span className="text-xs text-muted-foreground font-semibold">
-                      ₦{selected.price.toLocaleString()}
-                    </span>
-                  </div>
-                ) : (
-                  <span className="text-muted-foreground">No stall selected</span>
-                )}
-              </div>
-              <Button
-                onClick={handleHold}
-                disabled={!selected || step === "holding"}
-                className="rounded-full shrink-0"
+          {/* Filter tabs */}
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {FILTER_TABS.map((tab) => (
+              <button
+                key={tab.value}
+                onClick={() => setStallFilter(tab.value)}
+                className={`text-xs rounded-full px-3 py-1.5 border font-medium transition-colors ${
+                  stallFilter === tab.value
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "border-border text-muted-foreground hover:text-foreground"
+                }`}
               >
-                {step === "holding" ? <><Loader2 className="w-4 h-4 animate-spin mr-2" />Holding...</> : "Hold stall"}
-              </Button>
+                {tab.label}
+              </button>
+            ))}
+            <span className="ml-auto text-xs text-muted-foreground">
+              {availableInView} available
+            </span>
+          </div>
+
+          {/* Legend */}
+          <div className="flex items-center gap-4 text-xs text-muted-foreground flex-wrap">
+            <span className="flex items-center gap-1.5">
+              <span className="w-3 h-3 rounded border-2 inline-block" style={{ borderColor: TIER1_COLOR }} />
+              Tier 1 - ₦250,000
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="w-3 h-3 rounded border-2 inline-block" style={{ borderColor: TIER2_COLOR }} />
+              Tier 2 - ₦210,000
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="w-3 h-3 rounded bg-zinc-300 inline-block" />
+              Taken
+            </span>
+            {allowedCat && (
+              <span className="flex items-center gap-1.5">
+                <span className="w-3 h-3 rounded bg-zinc-100 border border-zinc-300 opacity-40 inline-block" />
+                Not your category
+              </span>
+            )}
+          </div>
+
+          {/* Stall grid + floor plan */}
+          <div className="overflow-y-auto flex-1 -mx-2 px-2">
+
+            {/* Collapsible floor plan — starts expanded */}
+            <div className="mb-3">
+              <button
+                onClick={() => setShowFloorPlan((v) => !v)}
+                className="flex items-center gap-2 text-xs font-medium text-primary hover:opacity-80 transition-opacity mb-2"
+              >
+                <MapIcon className="w-3.5 h-3.5 shrink-0" />
+                {showFloorPlan ? "Hide floor plan" : "View floor plan"}
+                {showFloorPlan ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+              </button>
+              {showFloorPlan && (
+                <div className="mb-2">
+                  <p className="text-[10px] text-muted-foreground mb-1">Pinch to zoom · Double-tap to reset</p>
+                  <FloorPlanImage />
+                </div>
+              )}
             </div>
-          </>
-        )}
+
+            {/* Stall number grid */}
+            {loadingStalls ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="w-6 h-6 animate-spin text-primary" />
+              </div>
+            ) : stalls.length === 0 ? (
+              <p className="text-center text-muted-foreground py-12 text-sm">No stalls found for this exhibition.</p>
+            ) : (
+              <div className="grid grid-cols-5 sm:grid-cols-10 gap-1.5">
+                {displayNumbers.map((n) => {
+                  const stall = stallMap.get(n);
+                  if (!stall) return null;
+
+                  const isAvailable = stall.status === "available";
+                  const isTaken = !isAvailable;
+                  const isSelected = Number(selected?.stall_number) === n;
+                  const isRestricted = !canVendorBookStall(user.vendor_category, stall.category);
+                  const color = tierColor(stall.price);
+                  const isTier2 = stall.price === TIER2_PRICE;
+                  const catShort = stall.category === "Food" ? "Food" : "F&O";
+
+                  let baseStyle: React.CSSProperties;
+                  let selClass = "";
+
+                  if (isTaken) {
+                    baseStyle = {
+                      backgroundColor: "#d4d4d8",
+                      border: "2px solid #d4d4d8",
+                      color: "#71717a",
+                      opacity: 0.6,
+                      cursor: "not-allowed",
+                    };
+                  } else if (isRestricted) {
+                    baseStyle = {
+                      backgroundColor: "#fafafa",
+                      border: "2px solid #e4e4e7",
+                      color: "#d4d4d8",
+                      opacity: 0.4,
+                      cursor: "not-allowed",
+                    };
+                  } else if (isSelected) {
+                    baseStyle = { cursor: "pointer" };
+                    selClass = isTier2 ? "stall-selected-t2" : "stall-selected-t1";
+                  } else {
+                    baseStyle = {
+                      backgroundColor: "#ffffff",
+                      border: `2px solid ${color}`,
+                      color: "#27272a",
+                      cursor: "pointer",
+                    };
+                  }
+
+                  return (
+                    <button
+                      key={n}
+                      disabled={isTaken || isRestricted || step === "paying"}
+                      onClick={() => { if (isAvailable && !isRestricted && stall) setSelected(stall); }}
+                      title={isRestricted ? `Not available for your vendor type (${user.vendor_category})` : `V${n} - ${stall.category} - ₦${stall.price.toLocaleString()}`}
+                      className={selClass}
+                      style={{
+                        ...baseStyle,
+                        aspectRatio: "1",
+                        borderRadius: "6px",
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        transition: "transform 0.12s ease, box-shadow 0.12s ease, background-color 0.12s ease",
+                        userSelect: "none",
+                        WebkitUserSelect: "none",
+                        padding: 0,
+                        outline: "none",
+                      }}
+                    >
+                      {isSelected && (
+                        <Check
+                          style={{
+                            position: "absolute",
+                            top: "2px",
+                            right: "2px",
+                            width: "9px",
+                            height: "9px",
+                            color: "#ffffff",
+                            strokeWidth: 3,
+                            flexShrink: 0,
+                          }}
+                        />
+                      )}
+                      <span style={{ fontSize: "10px", fontWeight: 700, lineHeight: 1.1, color: "inherit" }}>V{n}</span>
+                      {!isSelected && (
+                        <span style={{ fontSize: "6px", lineHeight: 1.1, opacity: 0.65, color: "inherit" }}>{catShort}</span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Footer action bar */}
+          <div className="flex items-center justify-between pt-3 border-t border-border gap-3">
+            <div className="text-sm min-w-0">
+              {selected ? (
+                <div className="flex flex-col">
+                  <span className="flex items-center gap-1.5 font-medium" style={{ color: tierColor(selected.price) }}>
+                    <Check className="w-4 h-4 shrink-0" /> V{selected.stall_number} - {selected.category}
+                  </span>
+                  <span className="text-xs text-muted-foreground font-semibold">
+                    ₦{selected.price.toLocaleString()}
+                  </span>
+                </div>
+              ) : (
+                <span className="text-muted-foreground">No stall selected</span>
+              )}
+            </div>
+            <Button
+              onClick={handleReservePay}
+              disabled={!selected || step === "paying"}
+              className="rounded-full shrink-0"
+            >
+              {step === "paying"
+                ? <><Loader2 className="w-4 h-4 animate-spin mr-2" />Redirecting to payment…</>
+                : "Reserve & Pay"}
+            </Button>
+          </div>
+        </>
       </DialogContent>
     </Dialog>
   );
