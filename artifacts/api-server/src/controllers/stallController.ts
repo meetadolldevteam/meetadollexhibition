@@ -29,6 +29,17 @@ export async function getStallStats(req: Request, res: Response): Promise<void> 
   }
 
   try {
+    const { data: exhibition, error: exhibitionError } = await supabase
+      .from("exhibitions")
+      .select("status")
+      .eq("id", exhibition_id)
+      .maybeSingle();
+
+    if (exhibitionError || !exhibition || exhibition.status !== "active") {
+      res.status(404).json({ error: "Exhibition not found" });
+      return;
+    }
+
     const { data, error } = await withRetry(
       async () =>
         supabase
@@ -78,6 +89,17 @@ export async function getStalls(req: Request, res: Response): Promise<void> {
   }
 
   try {
+    const { data: exhibition, error: exhibitionError } = await supabase
+      .from("exhibitions")
+      .select("status")
+      .eq("id", exhibition_id)
+      .maybeSingle();
+
+    if (exhibitionError || !exhibition || exhibition.status !== "active") {
+      res.status(404).json({ error: "Exhibition not found" });
+      return;
+    }
+
     const { data, error } = await withRetry(
       async () =>
         supabase
