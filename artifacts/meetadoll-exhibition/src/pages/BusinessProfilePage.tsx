@@ -52,8 +52,11 @@ export default function BusinessProfilePage() {
   const handleLogoChange = useCallback((file: File | null) => {
     if (logoPreview) URL.revokeObjectURL(logoPreview);
     if (!file) { setLogoFile(null); setLogoPreview(null); return; }
-    if (!["image/jpeg", "image/png"].includes(file.type)) { setError("Logo must be a JPG or PNG image."); return; }
-    if (file.size > 2 * 1024 * 1024) { setError("Logo must be under 2MB."); return; }
+    const accepted = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
+    if (!accepted.includes(file.type) && !file.type.startsWith("image/")) {
+      setError("Logo must be a JPG, PNG, or WebP image."); return;
+    }
+    if (file.size > 4 * 1024 * 1024) { setError("Logo must be under 4MB."); return; }
     setError("");
     setLogoFile(file);
     setLogoPreview(URL.createObjectURL(file));
@@ -120,7 +123,7 @@ export default function BusinessProfilePage() {
         <input
           ref={fileInputRef}
           type="file"
-          accept="image/jpeg,image/png"
+          accept="image/jpeg,image/jpg,image/png,image/webp"
           className="hidden"
           onClick={(e) => e.stopPropagation()}
           onChange={(e) => {
@@ -213,7 +216,7 @@ export default function BusinessProfilePage() {
               >
                 <UploadCloud className="w-6 h-6" />
                 <span className="text-xs font-medium">Click to upload logo</span>
-                <span className="text-xs opacity-70">JPG or PNG · max 2MB</span>
+                <span className="text-xs opacity-70">JPG, PNG or WebP · max 4MB</span>
               </button>
             )}
           </div>

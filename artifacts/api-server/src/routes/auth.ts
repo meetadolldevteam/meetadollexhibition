@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { Router, Request, Response, NextFunction } from "express";
 import { body } from "express-validator";
 import multer from "multer";
 import { register, login, verifyEmail, refresh, logout, completeBusinessProfile } from "../controllers/authController";
@@ -14,17 +14,39 @@ import {
 
 const router = Router();
 
+const ACCEPTED_IMAGE_TYPES = new Set([
+  "image/jpeg",
+  "image/jpg",
+  "image/png",
+  "image/webp",
+]);
+
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 4 * 1024 * 1024 },
   fileFilter(_req, file, cb) {
-    if (file.mimetype === "image/jpeg" || file.mimetype === "image/png") {
+    if (ACCEPTED_IMAGE_TYPES.has(file.mimetype)) {
       cb(null, true);
     } else {
-      cb(new Error("Only JPG and PNG files are allowed"));
+      cb(new Error("Logo must be a JPG, PNG, or WebP image."));
     }
   },
 });
+
+function handleUpload(req: Request, res: Response, next: NextFunction): void {
+  upload.single("business_logo")(req, res, (err: unknown) => {
+    if (!err) { next(); return; }
+    if (err instanceof multer.MulterError) {
+      const msg = err.code === "LIMIT_FILE_SIZE"
+        ? "Logo must be under 4MB."
+        : err.message;
+      res.status(422).json({ error: msg });
+      return;
+    }
+    const message = err instanceof Error ? err.message : "File upload failed.";
+    res.status(422).json({ error: message });
+  });
+}
 
 // ── Registration (personal details only) ─────────────────────────────────────
 router.post(
@@ -68,7 +90,7 @@ router.post(
 router.post(
   "/business-profile",
   authenticate,
-  upload.single("business_logo"),
+  handleUpload,
   [
     body("business_name")
       .trim()
