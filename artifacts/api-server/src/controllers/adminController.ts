@@ -35,7 +35,7 @@ export async function getStats(_req: Request, res: Response): Promise<void> {
     const stalls = (stallRes.data ?? []) as Array<{ status: string }>;
     const payments = (paymentRes.data ?? []) as Array<{ status: string; amount: number | null }>;
 
-    const revenue = payments.filter((p) => p.status === "successful").reduce((s, p) => s + (p.amount ?? 0), 0);
+    const revenue = payments.filter((p) => p.status === "success").reduce((s, p) => s + (p.amount ?? 0), 0);
     const pendingPayments = payments.filter((p) => p.status === "pending").length;
 
     res.json({
@@ -302,7 +302,7 @@ export async function getPaymentsSummary(_req: Request, res: Response): Promise<
       }
       const bucket = byExhibition.get(exh.id)!;
       const amount = typeof p.amount === "number" ? p.amount : 0;
-      if (p.status === "successful") { bucket.successful.count++; bucket.successful.total += amount; overallRevenue += amount; }
+      if (p.status === "success") { bucket.successful.count++; bucket.successful.total += amount; overallRevenue += amount; }
       else if (p.status === "pending") { bucket.pending.count++; bucket.pending.total += amount; overallPending += amount; }
       else { bucket.failed.count++; bucket.failed.total += amount; overallFailed += amount; }
     }

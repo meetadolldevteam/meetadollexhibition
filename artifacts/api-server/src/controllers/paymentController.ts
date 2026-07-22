@@ -369,7 +369,7 @@ export async function paymentWebhook(req: Request, res: Response): Promise<void>
       return;
     }
 
-    const TERMINAL_PAYMENT_STATUSES = ["successful", "failed", "refunded"];
+    const TERMINAL_PAYMENT_STATUSES = ["success", "failed", "refunded"];
     if (TERMINAL_PAYMENT_STATUSES.includes(payment.status)) {
       logger.info({ reference, status: payment.status }, "Webhook received for terminal payment — skipping");
       res.status(200).json({ message: "Already processed" });
@@ -405,7 +405,7 @@ export async function paymentWebhook(req: Request, res: Response): Promise<void>
 
     await supabase
       .from("payments")
-      .update({ status: "successful", amount: amountNaira })
+      .update({ status: "success", amount: amountNaira })
       .eq("transaction_reference", reference);
 
     await supabase.from("reservations").update({ status: "confirmed" }).eq("id", payment.reservation_id);

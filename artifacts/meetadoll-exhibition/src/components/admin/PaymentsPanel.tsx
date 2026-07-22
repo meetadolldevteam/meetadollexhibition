@@ -167,7 +167,7 @@ function PaymentDetailModal({
               <Flag className="w-3.5 h-3.5" />
               {payment.flagged ? "Unflag" : "Flag as suspicious"}
             </Button>
-            {isSuperAdmin && payment.status === "successful" && (
+            {isSuperAdmin && payment.status === "success" && (
               <Button
                 variant="outline"
                 size="sm"
@@ -236,7 +236,7 @@ export default function PaymentsPanel({ isSuperAdmin }: { isSuperAdmin: boolean 
     }
   }
 
-  const totalRevenue = payments.filter((p) => p.status === "successful").reduce((s, p) => s + (p.amount ?? 0), 0);
+  const totalRevenue = payments.filter((p) => p.status === "success").reduce((s, p) => s + (p.amount ?? 0), 0);
 
   return (
     <div className="space-y-4">
@@ -248,7 +248,7 @@ export default function PaymentsPanel({ isSuperAdmin }: { isSuperAdmin: boolean 
           onChange={(e) => setStatusFilter(e.target.value)}
         >
           <option value="">All statuses</option>
-          <option value="successful">Successful</option>
+          <option value="success">Successful</option>
           <option value="pending">Pending</option>
           <option value="failed">Failed</option>
           <option value="refunded">Refunded</option>
@@ -323,7 +323,7 @@ export default function PaymentsPanel({ isSuperAdmin }: { isSuperAdmin: boolean 
                       >
                         <Flag className="w-3.5 h-3.5" />
                       </Button>
-                      {isSuperAdmin && p.status === "successful" && (
+                      {isSuperAdmin && p.status === "success" && (
                         <Button
                           variant="ghost" size="sm"
                           className="h-7 px-2 text-xs text-destructive hover:text-destructive"
