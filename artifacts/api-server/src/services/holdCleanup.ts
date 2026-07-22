@@ -3,6 +3,11 @@ import { supabase } from "../config/supabase";
 import { logger } from "../lib/logger";
 import { cache } from "../lib/cache";
 
+// A pending payment is only considered "active" if it was created within this
+// window. Beyond this we treat it as abandoned — the user left the payment
+// page without completing — and we release the hold.
+const ACTIVE_PAYMENT_GRACE_MS = 30 * 60 * 1000; // 30 minutes
+
 export function startHoldCleanupJob(): void {
   cron.schedule("*/5 * * * *", async () => {
     logger.info("Running stall hold cleanup");
@@ -23,13 +28,17 @@ export function startHoldCleanupJob(): void {
 
       const reservationIds = expiredReservations.map((r) => r.id);
 
-      // Step 2: Exclude reservations that have an active (pending) payment.
-      // This prevents releasing a stall while its payment is being confirmed —
-      // i.e. user has clicked Pay and the Paystack webhook hasn't fired yet.
+      // Step 2: Exclude reservations that have a RECENTLY-created pending payment.
+      // This protects the hold while the user is actively on the Paystack page
+      // and the webhook hasn't fired yet. Payments older than ACTIVE_PAYMENT_GRACE_MS
+      // are treated as abandoned — the user left without completing payment.
+      const paymentCutoff = new Date(Date.now() - ACTIVE_PAYMENT_GRACE_MS).toISOString();
+
       const { data: activePayments, error: paymentFetchErr } = await supabase
         .from("payments")
         .select("reservation_id")
         .eq("status", "pending")
+        .gt("created_at", paymentCutoff)
         .in("reservation_id", reservationIds);
 
       if (paymentFetchErr) {
@@ -58,7 +67,14 @@ export function startHoldCleanupJob(): void {
       const safeIds = safeToExpire.map((r) => r.id);
       const safeStallIds = safeToExpire.map((r) => r.stall_id);
 
-      // Step 3: Mark reservations expired
+      // Step 3: Mark any orphaned pending payments as failed (enum has no "abandoned")
+      await supabase
+        .from("payments")
+        .update({ status: "failed" })
+        .eq("status", "pending")
+        .in("reservation_id", safeIds);
+
+      // Step 4: Mark reservations expired
       const { error: updateResErr } = await supabase
         .from("reservations")
         .update({ status: "expired" })
@@ -69,7 +85,7 @@ export function startHoldCleanupJob(): void {
         return;
       }
 
-      // Step 4: Release the stalls back to available
+      // Step 5: Release the stalls back to available
       const { error: updateStallErr } = await supabase
         .from("stalls")
         .update({ status: "available" })
