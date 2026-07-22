@@ -1,4 +1,4 @@
-const WHATSAPP_URL = "https://wa.me/2349063604449?text=Hello%20Meetadoll%20Exhibition%2C%20I%27d%20like%20to%20enquire%20about%20a%20vendor%20stall.";
+const WHATSAPP_URL = "https://wa.me/2348120201518?text=Hello%20Meetadoll%20Exhibition%2C%20I%27d%20like%20to%20enquire%20about%20a%20vendor%20stall.";
 
 const WhatsAppButton = () => (
   <a

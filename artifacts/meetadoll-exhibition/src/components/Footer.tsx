@@ -25,7 +25,7 @@ const Footer = () => (
               Reserve a stall <ArrowUpRight size={16} />
             </a>
             <a
-              href="https://wa.me/2349063604449"
+              href="https://wa.me/2348120201518"
               target="_blank"
               rel="noreferrer"
               className="inline-flex items-center gap-2 rounded-full px-5 py-3 text-sm font-semibold bg-[#25D366] text-white hover:opacity-90 transition-opacity"
@@ -33,7 +33,7 @@ const Footer = () => (
               WhatsApp <MessageCircle size={14} />
             </a>
             <a
-              href="tel:+2349063604449"
+              href="tel:+2348120201518"
               className="inline-flex items-center gap-2 rounded-full px-5 py-3 text-sm font-semibold bg-primary text-primary-foreground hover:opacity-90 transition-opacity"
             >
               Call customer care <Phone size={14} />
