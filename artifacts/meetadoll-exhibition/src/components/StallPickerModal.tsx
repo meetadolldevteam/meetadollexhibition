@@ -290,14 +290,25 @@ export default function StallPickerModal({ open, onOpenChange, defaultTierFilter
                 </button>
                 {showFloorPlan && (
                   <div
-                    className="rounded-xl border border-border overflow-auto"
-                    style={{ touchAction: "pan-x pan-y pinch-zoom", WebkitOverflowScrolling: "touch" } as React.CSSProperties}
+                    className="rounded-xl border border-border"
+                    style={{
+                      overflow: "auto",
+                      WebkitOverflowScrolling: "touch",
+                      touchAction: "pan-x pan-y pinch-zoom",
+                    } as React.CSSProperties}
                   >
                     <img
                       src="/images/stall-guide.png"
                       alt="Stall layout floor plan"
                       className="block"
-                      style={{ minWidth: "900px", width: "100%", height: "auto" }}
+                      style={{
+                        minWidth: "900px",
+                        width: "100%",
+                        height: "auto",
+                        touchAction: "pan-x pan-y pinch-zoom",
+                        userSelect: "none",
+                      } as React.CSSProperties}
+                      draggable={false}
                       loading="lazy"
                     />
                   </div>
@@ -323,16 +334,28 @@ export default function StallPickerModal({ open, onOpenChange, defaultTierFilter
                     const color = tierColor(stall.price);
                     const catShort = stall.category === "Food" ? "Food" : "Fashion & Others";
 
-                    let cellClass = "aspect-square rounded-md text-center border-2 transition-all duration-150 flex flex-col items-center justify-center cursor-pointer select-none ";
+                    const baseClass = "aspect-square rounded-md text-center flex flex-col items-center justify-center cursor-pointer select-none transition-all duration-150";
+
+                    let cellClass = baseClass + " ";
+                    let cellStyle: React.CSSProperties = {};
 
                     if (isTaken) {
-                      cellClass += "bg-zinc-300 border-zinc-300 text-zinc-500 cursor-not-allowed opacity-60";
+                      cellClass += "bg-zinc-300 text-zinc-500 cursor-not-allowed opacity-60";
+                      cellStyle = { border: "2px solid #d4d4d8" };
                     } else if (isRestricted) {
-                      cellClass += "bg-zinc-50 border-zinc-200 text-zinc-300 cursor-not-allowed opacity-40";
+                      cellClass += "bg-zinc-50 text-zinc-300 cursor-not-allowed opacity-40";
+                      cellStyle = { border: "2px solid #e4e4e7" };
                     } else if (isSelected) {
-                      cellClass += "text-white scale-125 shadow-xl z-10 relative ring-2 ring-white ring-offset-1";
+                      cellClass += "text-white relative z-10";
+                      cellStyle = {
+                        backgroundColor: color,
+                        border: `3px solid ${color}`,
+                        transform: "scale(1.15)",
+                        boxShadow: `0 4px 16px 0 ${color}66, 0 2px 6px 0 rgba(0,0,0,0.18)`,
+                      };
                     } else {
                       cellClass += "bg-white text-zinc-800 hover:scale-105 hover:shadow-sm";
+                      cellStyle = { border: `2px solid ${color}` };
                     }
 
                     return (
@@ -341,18 +364,12 @@ export default function StallPickerModal({ open, onOpenChange, defaultTierFilter
                         disabled={isTaken || isRestricted || step === "holding"}
                         onClick={() => isAvailable && !isRestricted && stall && setSelected(stall)}
                         className={cellClass}
-                        style={
-                          isSelected
-                            ? { backgroundColor: color, borderColor: color }
-                            : !isTaken && !isRestricted
-                            ? { borderColor: color }
-                            : undefined
-                        }
+                        style={cellStyle}
                         title={isRestricted ? `Not available for your vendor type (${user.vendor_category})` : `V${n} - ${stall.category} - ₦${stall.price.toLocaleString()}`}
                       >
                         {isSelected ? (
                           <>
-                            <Check className="w-3 h-3 mb-0.5" />
+                            <Check className="w-3 h-3 mb-0.5 shrink-0" />
                             <span className="text-[9px] font-bold leading-tight">V{n}</span>
                           </>
                         ) : (
