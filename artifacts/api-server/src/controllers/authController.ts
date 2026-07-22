@@ -208,13 +208,21 @@ export async function completeBusinessProfile(req: AuthRequest, res: Response): 
 }
 
 // ── Login ─────────────────────────────────────────────────────────────────────
+// Accounts on the @meetadoll.local internal domain are password-only (no OTP).
+// These are internal admin accounts with no real email inbox.
+const INTERNAL_DOMAIN = "@meetadoll.local";
+
 export async function login(req: Request, res: Response): Promise<void> {
   const { email, password } = req.body;
 
   try {
     const { data: user, error } = await supabase
       .from("users")
-      .select("id, email, name, role, password_hash")
+      .select(`
+        id, email, name, role, password_hash,
+        vendor_category, business_name, business_category,
+        business_logo_url, instagram_username, business_profile_complete
+      `)
       .eq("email", email)
       .single();
 
@@ -226,6 +234,49 @@ export async function login(req: Request, res: Response): Promise<void> {
     const valid = await bcrypt.compare(password, user.password_hash);
     if (!valid) {
       res.status(401).json({ error: "Invalid email or password" });
+      return;
+    }
+
+    // Internal admin accounts skip OTP — issue tokens directly
+    if (user.email.endsWith(INTERNAL_DOMAIN)) {
+      const u = user as typeof user & {
+        vendor_category?: string | null;
+        business_name?: string | null;
+        business_category?: string | null;
+        business_logo_url?: string | null;
+        instagram_username?: string | null;
+        business_profile_complete?: boolean;
+      };
+      const accessToken = signAccessToken({
+        id: u.id,
+        email: u.email,
+        name: u.name ?? "",
+        role: u.role,
+        vendor_category: u.vendor_category,
+        business_name: u.business_name,
+        business_category: u.business_category,
+        business_logo_url: u.business_logo_url,
+        instagram_username: u.instagram_username,
+        business_profile_complete: u.business_profile_complete ?? false,
+      });
+      const refreshToken = signRefreshToken(u.id);
+      res.cookie(REFRESH_COOKIE_NAME, refreshToken, refreshCookieOptions);
+      logger.info({ userId: u.id, role: u.role }, "Internal admin login — OTP skipped");
+      res.json({
+        token: accessToken,
+        user: {
+          id: u.id,
+          email: u.email,
+          name: u.name,
+          role: u.role,
+          vendor_category: u.vendor_category,
+          business_name: u.business_name,
+          business_category: u.business_category,
+          business_logo_url: u.business_logo_url,
+          instagram_username: u.instagram_username,
+          business_profile_complete: u.business_profile_complete ?? false,
+        },
+      });
       return;
     }
 
