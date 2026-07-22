@@ -116,6 +116,61 @@ const PortfolioSection = () => {
         </div>
       </div>
 
+      {/* Past editions summary */}
+      <div className="max-w-6xl mx-auto px-5 md:px-6 mt-16 md:mt-20">
+        <ScrollReveal>
+          <p className="text-xs uppercase tracking-[0.25em] text-primary font-medium mb-3 font-sans-grotesk text-center">
+            Our journey
+          </p>
+          <h3 className="text-2xl sm:text-3xl font-script text-foreground mb-10 text-center">
+            Past editions
+          </h3>
+        </ScrollReveal>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+          {[
+            {
+              title: "First Edition Kaduna, 2023",
+              body: "Meetadoll began its journey in Kaduna with its inaugural exhibition, bringing together 75 vendors and approximately 3,000 attendees. The event achieved an 80% vendor sell out rate and generated approximately 1.2 million social media impressions, establishing a strong foundation for future editions.",
+              stats: "75 vendors · 3,000+ attendees · 80% sell out rate · 1.2M social media impressions",
+            },
+            {
+              title: "Second Edition Kaduna, 2024",
+              body: "Building on the success of its first edition, the second edition expanded its reach and participation. The event hosted 100 vendors and attracted approximately 5,000 attendees. With an 80% vendor sell out rate and approximately 3 million social media impressions, the exhibition continued its upward trajectory.",
+              stats: "100 vendors · 5,000+ attendees · 80% sell out rate · 3M social media impressions",
+            },
+            {
+              title: "Third Edition Kaduna, 2025",
+              body: "The third edition marked a major milestone in Meetadoll's growth. Vendor participation more than doubled to 230 vendors, while attendance reached approximately 10,000 people. The event maintained its 80% vendor sell out rate and generated approximately 5 million social media impressions, cementing Meetadoll's position as a high-impact exhibition platform.",
+              stats: "230 vendors · 10,000+ attendees · 80% sell out rate · 5M social media impressions",
+            },
+            {
+              title: "Fourth Edition Abuja, 2026",
+              body: "The fourth edition marked Meetadoll's expansion beyond Kaduna and into Nigeria's capital city, Abuja. The event brought together 200 vendors and attracted approximately 7,000 attendees. Maintaining its 80% vendor sell out rate and generating approximately 5 million social media impressions, the Abuja edition demonstrated the strength and scalability of the Meetadoll Exhibition brand.",
+              stats: "200 vendors · 7,000+ attendees · 80% sell out rate · 5M social media impressions",
+            },
+          ].map((ed, i) => (
+            <ScrollReveal key={ed.title} delay={i * 0.1}>
+              <div className="bg-background border border-border rounded-2xl p-6 md:p-8 flex flex-col gap-4 h-full shadow-sm hover:shadow-md hover:border-primary/30 transition-all">
+                <div>
+                  <span className="inline-block text-xs uppercase tracking-[0.2em] text-primary font-semibold font-sans-grotesk mb-2">
+                    {ed.title.split(" ")[0]} edition
+                  </span>
+                  <h4 className="font-display font-bold text-lg text-foreground leading-snug">
+                    {ed.title}
+                  </h4>
+                </div>
+                <p className="text-muted-foreground text-sm leading-relaxed flex-1">
+                  {ed.body}
+                </p>
+                <p className="text-xs font-medium text-foreground/70 border-t border-border pt-4 font-sans-grotesk">
+                  {ed.stats}
+                </p>
+              </div>
+            </ScrollReveal>
+          ))}
+        </div>
+      </div>
+
       {/* Zoom modal */}
       <AnimatePresence>
         {zoomIndex !== null && (
