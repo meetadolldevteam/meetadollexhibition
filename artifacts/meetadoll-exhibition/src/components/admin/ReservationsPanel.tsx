@@ -111,6 +111,7 @@ export default function ReservationsPanel({ canEdit }: { canEdit: boolean }) {
 
   return (
     <div className="space-y-4">
+      {/* Filters */}
       <div className="flex flex-wrap items-center gap-3">
         <div className="relative flex-1 min-w-[200px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -133,13 +134,14 @@ export default function ReservationsPanel({ canEdit }: { canEdit: boolean }) {
           <option value="expired">Expired</option>
         </select>
         <Button variant="outline" size="sm" className="gap-1.5" onClick={() => exportCsv(filtered)}>
-          <Download className="w-4 h-4" /> Export CSV
+          <Download className="w-4 h-4" /> Export
         </Button>
       </div>
 
       <p className="text-xs text-muted-foreground">{filtered.length} of {all.length} records</p>
 
-      <div className="rounded-xl border border-border overflow-x-auto">
+      {/* ── Desktop table (md+) ── */}
+      <div className="hidden md:block rounded-xl border border-border overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-secondary/50 sticky top-0">
             <tr>
@@ -210,6 +212,87 @@ export default function ReservationsPanel({ canEdit }: { canEdit: boolean }) {
             })}
           </tbody>
         </table>
+      </div>
+
+      {/* ── Mobile cards (< md) ── */}
+      <div className="md:hidden space-y-3">
+        {loading ? (
+          <div className="py-8 text-center text-muted-foreground text-sm">Loading…</div>
+        ) : filtered.length === 0 ? (
+          <div className="py-8 text-center text-muted-foreground text-sm">No reservations found.</div>
+        ) : filtered.map((r) => {
+          const meta = STATUS_META[r.status] ?? { label: r.status, cls: "bg-zinc-100 text-zinc-600" };
+          return (
+            <div key={r.id} className="rounded-xl border border-border bg-card p-4 space-y-3">
+              {/* Header */}
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="font-semibold text-sm leading-tight truncate">{r.users?.name ?? "—"}</p>
+                  <p className="text-xs text-muted-foreground truncate">{r.users?.email}</p>
+                </div>
+                <span className={`flex-shrink-0 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${meta.cls}`}>
+                  {meta.label}
+                </span>
+              </div>
+
+              {/* Details grid */}
+              <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                <div>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide">Stall</p>
+                  <p className="font-semibold">#{r.stalls?.stall_number ?? "—"}</p>
+                  <p className="text-xs text-muted-foreground capitalize">{r.stalls?.package}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide">Exhibition</p>
+                  <p className="text-xs font-medium leading-snug">{r.stalls?.exhibitions?.name ?? "—"}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide">Code</p>
+                  <p className="font-mono text-xs">{r.reservation_code}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide">Date</p>
+                  <p className="text-xs">{new Date(r.created_at).toLocaleDateString()}</p>
+                </div>
+              </div>
+
+              {/* Check-in status */}
+              {r.checked_in_at ? (
+                <p className="text-xs text-green-600 font-medium">✓ Checked in at {new Date(r.checked_in_at).toLocaleTimeString()}</p>
+              ) : null}
+
+              {/* Actions */}
+              {(r.status === "confirmed" && !r.checked_in_at) || (canEdit && !["cancelled", "expired"].includes(r.status)) ? (
+                <div className="flex items-center gap-2 pt-1 border-t border-border">
+                  {r.status === "confirmed" && !r.checked_in_at && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 text-xs gap-1.5 flex-1"
+                      disabled={checkingIn === r.id}
+                      onClick={() => checkIn(r.id)}
+                    >
+                      <UserCheck className="w-3.5 h-3.5" />
+                      {checkingIn === r.id ? "Checking in…" : "Check in"}
+                    </Button>
+                  )}
+                  {canEdit && !["cancelled", "expired"].includes(r.status) && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 text-xs text-destructive hover:text-destructive gap-1.5"
+                      disabled={cancelling === r.id}
+                      onClick={() => cancel(r.id)}
+                    >
+                      <X className="w-3.5 h-3.5" />
+                      {cancelling === r.id ? "Cancelling…" : "Cancel"}
+                    </Button>
+                  )}
+                </div>
+              ) : null}
+            </div>
+          );
+        })}
       </div>
     </div>
   );

@@ -325,8 +325,8 @@ export async function getAllPayments(req: Request, res: Response): Promise<void>
         id, amount, status, transaction_reference, created_at,
         reservations (
           id, reservation_code,
-          users ( name, email ),
-          stalls ( stall_number )
+          users ( name, email, business_name, vendor_category, logo_url ),
+          stalls ( stall_number, package, category )
         )
       `)
       .order("created_at", { ascending: false });
