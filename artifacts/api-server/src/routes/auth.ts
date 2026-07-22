@@ -86,13 +86,15 @@ router.post(
       .trim()
       .notEmpty()
       .withMessage("Business phone number is required")
+      .customSanitizer((val: string) => val.replace(/[\s\-().]/g, ""))
       .matches(/^(\+?234|0)[789]\d{9}$/)
       .withMessage("Must be a valid Nigerian phone number (e.g. 08012345678)"),
     body("instagram_username")
       .trim()
       .notEmpty()
       .withMessage("Instagram username is required")
-      .matches(/^@?[a-zA-Z0-9._]{1,30}$/)
+      .customSanitizer((val: string) => val.replace(/^@/, "").replace(/^https?:\/\/(www\.)?instagram\.com\/?/, "").replace(/\/$/, ""))
+      .matches(/^[a-zA-Z0-9._]{1,30}$/)
       .withMessage("Enter a valid Instagram username (letters, numbers, . and _ only)"),
   ],
   validate,
