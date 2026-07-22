@@ -46,6 +46,28 @@ export async function initiatePayment(req: AuthRequest, res: Response): Promise<
       return;
     }
 
+    // ── One pending payment per reservation ───────────────────────────────────
+    // Only a single pending payment row may exist for a reservation at any time.
+    // We intentionally do NOT limit this to recently-created rows: a time-
+    // windowed check (e.g. "newer than 30 minutes") can be exploited by
+    // re-initiating just before the window closes, which refreshes the
+    // holdCleanup grace period indefinitely. Blocking on *any* pending row
+    // means a new attempt is only possible once the cleanup job has marked the
+    // previous payment "failed" and released the hold — closing the indefinite-
+    // squat vector entirely.
+    const { data: existingPending } = await supabase
+      .from("payments")
+      .select("id")
+      .eq("reservation_id", reservation_id)
+      .eq("status", "pending")
+      .limit(1)
+      .maybeSingle();
+
+    if (existingPending) {
+      res.status(409).json({ error: "A payment is already in progress for this reservation. Please complete it or wait for it to expire before starting a new one." });
+      return;
+    }
+
     const stallData = (reservation as any).stalls;
     const reservationAmount = stallData?.price;
 
@@ -180,12 +202,51 @@ export async function paymentWebhook(req: Request, res: Response): Promise<void>
       return;
     }
 
-    // ── Idempotency guard ────────────────────────────────────────────────────
-    // If this reference was already processed (Paystack can send duplicates),
-    // acknowledge silently and stop — no email will be sent twice.
-    if (payment.status === "successful") {
-      logger.info({ reference }, "Duplicate webhook received — already processed, skipping");
+    // ── Idempotency / terminal-state guard ───────────────────────────────────
+    // Reject any reference that has already reached a terminal state.
+    // "failed" and "refunded" records must never be re-promoted to "successful"
+    // by a late or replayed webhook.
+    const TERMINAL_PAYMENT_STATUSES = ["successful", "failed", "refunded"];
+    if (TERMINAL_PAYMENT_STATUSES.includes(payment.status)) {
+      logger.info({ reference, status: payment.status }, "Webhook received for terminal payment — skipping");
       res.status(200).json({ message: "Already processed" });
+      return;
+    }
+
+    // ── Reservation state guard ───────────────────────────────────────────────
+    // Load the reservation first and verify it is still in `held` status before
+    // touching anything. Expired, cancelled, or already-confirmed reservations
+    // must not be resurrected by a late Paystack callback.
+    const { data: reservation } = await supabase
+      .from("reservations")
+      .select(`
+        id, stall_id, user_id, status,
+        stalls ( stall_number, package, price, category, exhibitions ( name, venue, start_date ) ),
+        users ( name, email )
+      `)
+      .eq("id", payment.reservation_id)
+      .single();
+
+    if (!reservation) {
+      logger.warn({ reference, reservation_id: payment.reservation_id }, "Webhook: reservation not found — marking payment failed");
+      await supabase
+        .from("payments")
+        .update({ status: "failed" })
+        .eq("transaction_reference", reference);
+      res.status(200).json({ message: "Reservation not found" });
+      return;
+    }
+
+    if (reservation.status !== "held") {
+      logger.warn(
+        { reference, reservation_id: payment.reservation_id, reservation_status: reservation.status },
+        "Webhook: reservation is not in held state — refusing to confirm"
+      );
+      await supabase
+        .from("payments")
+        .update({ status: "failed" })
+        .eq("transaction_reference", reference);
+      res.status(200).json({ message: "Reservation no longer eligible for confirmation" });
       return;
     }
 
@@ -193,16 +254,6 @@ export async function paymentWebhook(req: Request, res: Response): Promise<void>
       .from("payments")
       .update({ status: "successful", amount: amountNaira })
       .eq("transaction_reference", reference);
-
-    const { data: reservation } = await supabase
-      .from("reservations")
-      .select(`
-        id, stall_id, user_id,
-        stalls ( stall_number, package, price, category, exhibitions ( name, venue, start_date ) ),
-        users ( name, email )
-      `)
-      .eq("id", payment.reservation_id)
-      .single();
 
     if (reservation) {
       await supabase

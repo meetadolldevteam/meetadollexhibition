@@ -110,6 +110,23 @@ export async function holdStall(req: AuthRequest, res: Response): Promise<void> 
   const userId = req.user!.id;
 
   try {
+    // ── One-active-hold-per-user guard ────────────────────────────────────────
+    // A vendor may not hold more than one stall at a time. This prevents a
+    // low-privilege account from squatting multiple stalls and denying
+    // inventory to other customers.
+    const { data: existingHold } = await supabase
+      .from("reservations")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("status", "held")
+      .limit(1)
+      .maybeSingle();
+
+    if (existingHold) {
+      res.status(409).json({ error: "You already have a stall on hold. Complete or cancel your existing reservation before reserving another." });
+      return;
+    }
+
     // ── Category check (parallel fetch) ───────────────────────────────────────
     const [stallCheck, userCheck] = await Promise.all([
       supabase.from("stalls").select("id, status, category").eq("id", stall_id).single(),
