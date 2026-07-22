@@ -6,6 +6,10 @@ export interface AccessTokenPayload {
   name: string;
   role: string;
   vendor_category?: string | null;
+  business_name?: string | null;
+  business_category?: string | null;
+  business_logo_url?: string | null;
+  instagram_username?: string | null;
 }
 
 export interface RefreshTokenPayload {

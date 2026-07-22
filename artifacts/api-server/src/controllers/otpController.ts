@@ -55,7 +55,6 @@ export async function verifyOtp(req: Request, res: Response): Promise<void> {
 
     const record = otpRecord as OtpRecord;
 
-    // Check lockout
     if (record.locked_until && new Date(record.locked_until) > new Date()) {
       const minutes = Math.ceil(
         (new Date(record.locked_until).getTime() - Date.now()) / 60000
@@ -92,13 +91,11 @@ export async function verifyOtp(req: Request, res: Response): Promise<void> {
       return;
     }
 
-    // Mark OTP as used immediately
     await supabase.from("otps").update({ used: true }).eq("id", record.id);
 
-    // Fetch user
     const { data: user, error: userErr } = await supabase
       .from("users")
-      .select("id, email, name, role, vendor_category")
+      .select("id, email, name, role, vendor_category, business_name, business_category, business_logo_url, instagram_username")
       .eq("id", userId)
       .single();
 
@@ -107,7 +104,6 @@ export async function verifyOtp(req: Request, res: Response): Promise<void> {
       return;
     }
 
-    // Mark email as verified for registration flow
     if (type === "registration") {
       await supabase
         .from("users")
@@ -115,14 +111,43 @@ export async function verifyOtp(req: Request, res: Response): Promise<void> {
         .eq("id", userId);
     }
 
-    const u = user as typeof user & { vendor_category?: string | null };
-    // Issue tokens
-    const accessToken = signAccessToken({ id: u.id, email: u.email, name: u.name ?? "", role: u.role, vendor_category: u.vendor_category });
+    const u = user as typeof user & {
+      vendor_category?: string | null;
+      business_name?: string | null;
+      business_category?: string | null;
+      business_logo_url?: string | null;
+      instagram_username?: string | null;
+    };
+
+    const accessToken = signAccessToken({
+      id: u.id,
+      email: u.email,
+      name: u.name ?? "",
+      role: u.role,
+      vendor_category: u.vendor_category,
+      business_name: u.business_name,
+      business_category: u.business_category,
+      business_logo_url: u.business_logo_url,
+      instagram_username: u.instagram_username,
+    });
     const refreshToken = signRefreshToken(user.id);
     res.cookie(REFRESH_COOKIE_NAME, refreshToken, refreshCookieOptions);
 
     logger.info({ userId, type }, "OTP verified — JWT issued");
-    res.json({ token: accessToken, user: { id: u.id, email: u.email, name: u.name, role: u.role, vendor_category: u.vendor_category } });
+    res.json({
+      token: accessToken,
+      user: {
+        id: u.id,
+        email: u.email,
+        name: u.name,
+        role: u.role,
+        vendor_category: u.vendor_category,
+        business_name: u.business_name,
+        business_category: u.business_category,
+        business_logo_url: u.business_logo_url,
+        instagram_username: u.instagram_username,
+      },
+    });
   } catch (err) {
     logger.error({ err }, "Verify OTP error");
     res.status(500).json({ error: "Something went wrong" });

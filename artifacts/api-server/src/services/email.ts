@@ -362,6 +362,120 @@ export async function sendOtpEmail(
   }
 }
 
+export async function sendWelcomeEmail(data: {
+  to: string;
+  vendorName: string;
+  businessName: string;
+  businessCategory: string;
+  instagramUsername: string;
+}): Promise<void> {
+  const resend = getResendClient();
+  if (!resend) {
+    logger.warn({ to: data.to }, "RESEND_API_KEY not configured — skipping welcome email");
+    return;
+  }
+  const { to, vendorName, businessName, businessCategory, instagramUsername } = data;
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/><title>Welcome to Meetadoll Exhibition</title></head>
+<body style="margin:0;padding:0;background-color:#f4f4f5;font-family:Arial,Helvetica,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f4f4f5;padding:32px 16px;">
+    <tr><td align="center">
+      <table width="600" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;width:100%;background-color:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
+        <tr><td style="background:linear-gradient(135deg,#8B0000 0%,#a01010 100%);padding:36px 40px;text-align:center;">
+          <h1 style="margin:0;font-size:28px;font-weight:900;color:#ffffff;letter-spacing:0.05em;font-family:Georgia,serif;">MEETADOLL</h1>
+          <p style="margin:4px 0 0 0;font-size:13px;color:rgba(255,255,255,0.85);letter-spacing:0.15em;text-transform:uppercase;">EXHIBITION</p>
+        </td></tr>
+        <tr><td style="padding:36px 40px;">
+          <h2 style="margin:0 0 16px;font-size:22px;color:#111827;">Welcome, ${vendorName}!</h2>
+          <p style="margin:0 0 14px;font-size:15px;color:#374151;line-height:1.6;">You have successfully registered as a vendor for the <strong>Meetadoll Exhibition — 5th Edition: The Homecoming</strong>. We are thrilled to have you.</p>
+          <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#fdf2f2;border:1px solid #fecaca;border-radius:10px;margin:20px 0;">
+            <tr><td style="background:#8B0000;padding:10px 20px;border-radius:10px 10px 0 0;">
+              <p style="margin:0;font-size:11px;font-weight:700;color:#fff;letter-spacing:0.15em;text-transform:uppercase;">Your Business Details</p>
+            </td></tr>
+            <tr><td style="padding:18px 20px;">
+              <table width="100%" cellpadding="0" cellspacing="0" border="0">
+                <tr><td style="padding:7px 0;border-bottom:1px solid #fee2e2;width:45%;"><p style="margin:0;font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:0.08em;">Business Name</p></td><td style="padding:7px 0;border-bottom:1px solid #fee2e2;"><p style="margin:0;font-size:13px;font-weight:600;color:#111827;">${businessName}</p></td></tr>
+                <tr><td style="padding:7px 0;border-bottom:1px solid #fee2e2;"><p style="margin:0;font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:0.08em;">Category</p></td><td style="padding:7px 0;border-bottom:1px solid #fee2e2;"><p style="margin:0;font-size:13px;font-weight:600;color:#111827;">${businessCategory}</p></td></tr>
+                <tr><td style="padding:7px 0;"><p style="margin:0;font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:0.08em;">Instagram</p></td><td style="padding:7px 0;"><p style="margin:0;font-size:13px;font-weight:600;color:#111827;">@${instagramUsername.replace(/^@/, "")}</p></td></tr>
+              </table>
+            </td></tr>
+          </table>
+          <p style="margin:14px 0;font-size:14px;color:#374151;line-height:1.6;">Your next step is to <strong>pick and hold a stall</strong> from your vendor dashboard, then complete your payment to lock it in.</p>
+          <p style="margin:0;font-size:13px;color:#6b7280;">Questions? Reach us on WhatsApp: <a href="https://wa.me/2349063604449" style="color:#8B0000;">+234 906 360 4449</a></p>
+        </td></tr>
+        <tr><td style="padding:20px 40px;text-align:center;background:#f9fafb;border-top:1px solid #e5e7eb;">
+          <p style="margin:0;font-size:11px;color:#9ca3af;">&copy; ${new Date().getFullYear()} Meetadoll Exhibition. All rights reserved.</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>`;
+  try {
+    await resend.emails.send({ from: FROM_EMAIL, to, subject: "Welcome to Meetadoll Exhibition — Registration Confirmed", html });
+    logger.info({ to }, "Welcome email sent");
+  } catch (err) {
+    logger.error({ err, to }, "Failed to send welcome email");
+  }
+}
+
+export async function sendAdminNotificationEmail(data: {
+  vendorName: string;
+  email: string;
+  businessName: string;
+  businessCategory: string;
+  businessPhone: string;
+  instagramUsername: string;
+  registeredAt: string;
+}): Promise<void> {
+  const resend = getResendClient();
+  if (!resend) {
+    logger.warn("RESEND_API_KEY not configured — skipping admin notification email");
+    return;
+  }
+  const { vendorName, email, businessName, businessCategory, businessPhone, instagramUsername, registeredAt } = data;
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"/><title>New Vendor Registration</title></head>
+<body style="margin:0;padding:0;background:#f4f4f5;font-family:Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f4f4f5;padding:32px 16px;">
+    <tr><td align="center">
+      <table width="600" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
+        <tr><td style="background:#111827;padding:24px 40px;">
+          <p style="margin:0;font-size:11px;color:rgba(255,255,255,0.6);text-transform:uppercase;letter-spacing:0.2em;">Meetadoll Admin Alert</p>
+          <h1 style="margin:6px 0 0;font-size:20px;color:#fff;font-weight:700;">New Vendor Registration</h1>
+        </td></tr>
+        <tr><td style="padding:28px 40px;">
+          <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;">
+            <tr><td style="padding:14px 20px;border-bottom:1px solid #e5e7eb;"><span style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:0.08em;">Full Name</span><p style="margin:4px 0 0;font-size:14px;font-weight:600;color:#111827;">${vendorName}</p></td></tr>
+            <tr><td style="padding:14px 20px;border-bottom:1px solid #e5e7eb;"><span style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:0.08em;">Email</span><p style="margin:4px 0 0;font-size:14px;color:#111827;">${email}</p></td></tr>
+            <tr><td style="padding:14px 20px;border-bottom:1px solid #e5e7eb;"><span style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:0.08em;">Business Name</span><p style="margin:4px 0 0;font-size:14px;font-weight:600;color:#111827;">${businessName}</p></td></tr>
+            <tr><td style="padding:14px 20px;border-bottom:1px solid #e5e7eb;"><span style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:0.08em;">Business Category</span><p style="margin:4px 0 0;font-size:14px;color:#111827;">${businessCategory}</p></td></tr>
+            <tr><td style="padding:14px 20px;border-bottom:1px solid #e5e7eb;"><span style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:0.08em;">Business Phone</span><p style="margin:4px 0 0;font-size:14px;color:#111827;">${businessPhone}</p></td></tr>
+            <tr><td style="padding:14px 20px;border-bottom:1px solid #e5e7eb;"><span style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:0.08em;">Instagram</span><p style="margin:4px 0 0;font-size:14px;color:#111827;">@${instagramUsername.replace(/^@/, "")}</p></td></tr>
+            <tr><td style="padding:14px 20px;"><span style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:0.08em;">Registered At</span><p style="margin:4px 0 0;font-size:14px;color:#111827;">${registeredAt}</p></td></tr>
+          </table>
+        </td></tr>
+        <tr><td style="padding:16px 40px;background:#f9fafb;border-top:1px solid #e5e7eb;text-align:center;">
+          <p style="margin:0;font-size:11px;color:#9ca3af;">Meetadoll Exhibition — Automated Notification</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>`;
+  try {
+    await resend.emails.send({
+      from: FROM_EMAIL,
+      to: "meetadollmanagement@gmail.com",
+      subject: `New Vendor Registration - ${businessName}`,
+      html,
+    });
+    logger.info({ businessName }, "Admin notification email sent");
+  } catch (err) {
+    logger.error({ err }, "Failed to send admin notification email");
+  }
+}
+
 export async function sendAnnouncementEmail(to: string, vendorName: string, subject: string, message: string): Promise<void> {
   const resend = getResendClient();
   if (!resend) {

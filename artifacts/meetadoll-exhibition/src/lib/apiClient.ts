@@ -73,9 +73,13 @@ interface RequestOptions extends Omit<RequestInit, "body"> {
 export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const { body, skipAuthRetry, headers, ...rest } = options;
 
+  const isFormData = body instanceof FormData;
+
   const doFetch = async (): Promise<Response> => {
     const finalHeaders = new Headers(headers);
-    finalHeaders.set("Content-Type", "application/json");
+    if (!isFormData) {
+      finalHeaders.set("Content-Type", "application/json");
+    }
     if (accessToken) {
       finalHeaders.set("Authorization", `Bearer ${accessToken}`);
     }
@@ -84,7 +88,7 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
       ...rest,
       credentials: "include",
       headers: finalHeaders,
-      body: body !== undefined ? JSON.stringify(body) : undefined,
+      body: body !== undefined ? (isFormData ? (body as FormData) : JSON.stringify(body)) : undefined,
     });
   };
 

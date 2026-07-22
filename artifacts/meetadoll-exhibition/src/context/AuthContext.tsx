@@ -7,6 +7,10 @@ interface User {
   name: string;
   role: string;
   vendor_category?: string | null;
+  business_name?: string | null;
+  business_category?: string | null;
+  business_logo_url?: string | null;
+  instagram_username?: string | null;
 }
 
 export interface OtpRequired {
@@ -19,7 +23,6 @@ interface AuthContextValue {
   user: User | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<OtpRequired | void>;
-  register: (data: { name: string; email: string; password: string; phone?: string; vendor_category?: string }) => Promise<OtpRequired>;
   verifyOtp: (userId: string, otp: string, type: "registration" | "login") => Promise<void>;
   resendOtp: (userId: string, type: "registration" | "login") => Promise<void>;
   logout: () => Promise<void>;
@@ -69,18 +72,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(full.user);
   }, []);
 
-  const register = useCallback(
-    async (body: { name: string; email: string; password: string; phone?: string; vendor_category?: string }): Promise<OtpRequired> => {
-      const data = await api.post<{ requiresOtp: boolean; userId: string; email: string }>(
-        "/auth/register",
-        body,
-        { skipAuthRetry: true }
-      );
-      return { requiresOtp: true, userId: data.userId, email: data.email };
-    },
-    []
-  );
-
   const verifyOtp = useCallback(
     async (userId: string, otp: string, type: "registration" | "login"): Promise<void> => {
       const data = await api.post<{ token: string; user: User }>(
@@ -110,7 +101,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, verifyOtp, resendOtp, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, verifyOtp, resendOtp, logout }}>
       {children}
     </AuthContext.Provider>
   );

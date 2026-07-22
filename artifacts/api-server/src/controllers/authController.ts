@@ -11,9 +11,86 @@ import {
   refreshCookieOptions,
 } from "../lib/tokens";
 import { createAndSendOtp } from "../services/otp";
+import { sendWelcomeEmail, sendAdminNotificationEmail } from "../services/email";
+
+interface MulterFile {
+  fieldname: string;
+  originalname: string;
+  mimetype: string;
+  size: number;
+  buffer: Buffer;
+}
+
+async function ensureLogosBucket(): Promise<void> {
+  const { error } = await supabase.storage.createBucket("business-logos", {
+    public: true,
+    allowedMimeTypes: ["image/jpeg", "image/png"],
+    fileSizeLimit: 4 * 1024 * 1024,
+  });
+  if (error && !error.message.includes("already exists")) {
+    logger.warn({ err: error }, "Could not ensure business-logos bucket");
+  }
+}
+
+async function uploadLogo(file: MulterFile, userId: string): Promise<string | null> {
+  try {
+    await ensureLogosBucket();
+    const ext = file.mimetype === "image/png" ? "png" : "jpg";
+    const fileName = `${userId}-${Date.now()}.${ext}`;
+    const { error } = await supabase.storage
+      .from("business-logos")
+      .upload(fileName, file.buffer, { contentType: file.mimetype, upsert: true });
+    if (error) {
+      logger.warn({ err: error }, "Logo upload failed — continuing without logo");
+      return null;
+    }
+    const { data } = supabase.storage.from("business-logos").getPublicUrl(fileName);
+    return data.publicUrl;
+  } catch (err) {
+    logger.warn({ err }, "Logo upload exception — continuing without logo");
+    return null;
+  }
+}
 
 export async function register(req: Request, res: Response): Promise<void> {
-  const { email, password, name, phone, vendor_category } = req.body;
+  const {
+    email,
+    password,
+    name,
+    phone,
+    vendor_category,
+    business_name,
+    business_category,
+    business_phone,
+    instagram_username,
+  } = req.body as Record<string, string>;
+
+  const logoFile = (req as Request & { file?: MulterFile }).file;
+
+  if (!business_name?.trim()) {
+    res.status(422).json({ error: "Business name is required" });
+    return;
+  }
+  if (!business_category?.trim()) {
+    res.status(422).json({ error: "Business category is required" });
+    return;
+  }
+  if (!business_phone?.trim()) {
+    res.status(422).json({ error: "Business phone number is required" });
+    return;
+  }
+  if (!instagram_username?.trim()) {
+    res.status(422).json({ error: "Instagram username is required" });
+    return;
+  }
+  if (!logoFile) {
+    res.status(422).json({ error: "Business logo is required" });
+    return;
+  }
+  if (logoFile.size > 4 * 1024 * 1024) {
+    res.status(422).json({ error: "Logo file must be under 4MB" });
+    return;
+  }
 
   try {
     const { data: existing } = await supabase
@@ -28,6 +105,7 @@ export async function register(req: Request, res: Response): Promise<void> {
     }
 
     const passwordHash = await bcrypt.hash(password, 12);
+    const cleanInstagram = instagram_username.replace(/^@/, "");
 
     const { data: user, error } = await supabase
       .from("users")
@@ -35,12 +113,16 @@ export async function register(req: Request, res: Response): Promise<void> {
         email,
         password_hash: passwordHash,
         name,
-        phone,
+        phone: phone || null,
         role: "vendor",
         email_verified: false,
         vendor_category: vendor_category ?? null,
+        business_name: business_name.trim(),
+        business_category: business_category.trim(),
+        business_phone: business_phone.trim(),
+        instagram_username: cleanInstagram,
       })
-      .select("id, email, name, role, vendor_category")
+      .select("id, email, name, role, vendor_category, business_name, business_category, instagram_username")
       .single();
 
     if (error || !user) {
@@ -49,7 +131,40 @@ export async function register(req: Request, res: Response): Promise<void> {
       return;
     }
 
+    const logoUrl = await uploadLogo(logoFile, user.id);
+    if (logoUrl) {
+      await supabase.from("users").update({ business_logo_url: logoUrl }).eq("id", user.id);
+    }
+
     await createAndSendOtp(user.id, user.email, "registration");
+
+    const registeredAt = new Date().toLocaleString("en-NG", {
+      timeZone: "Africa/Lagos",
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+
+    void sendWelcomeEmail({
+      to: user.email,
+      vendorName: user.name ?? name,
+      businessName: business_name.trim(),
+      businessCategory: business_category.trim(),
+      instagramUsername: cleanInstagram,
+    });
+
+    void sendAdminNotificationEmail({
+      vendorName: user.name ?? name,
+      email: user.email,
+      businessName: business_name.trim(),
+      businessCategory: business_category.trim(),
+      businessPhone: business_phone.trim(),
+      instagramUsername: cleanInstagram,
+      registeredAt,
+    });
 
     res.status(201).json({
       requiresOtp: true,
@@ -110,7 +225,7 @@ export async function refresh(req: Request, res: Response): Promise<void> {
 
     const { data: user, error } = await supabase
       .from("users")
-      .select("id, email, name, role, vendor_category")
+      .select("id, email, name, role, vendor_category, business_name, business_category, business_logo_url, instagram_username")
       .eq("id", decoded.id)
       .single();
 
@@ -120,15 +235,42 @@ export async function refresh(req: Request, res: Response): Promise<void> {
       return;
     }
 
-    const u = user as typeof user & { vendor_category?: string | null };
-    const accessToken = signAccessToken({ id: u.id, email: u.email, name: u.name ?? "", role: u.role, vendor_category: u.vendor_category });
+    const u = user as typeof user & {
+      vendor_category?: string | null;
+      business_name?: string | null;
+      business_category?: string | null;
+      business_logo_url?: string | null;
+      instagram_username?: string | null;
+    };
+
+    const accessToken = signAccessToken({
+      id: u.id,
+      email: u.email,
+      name: u.name ?? "",
+      role: u.role,
+      vendor_category: u.vendor_category,
+      business_name: u.business_name,
+      business_category: u.business_category,
+      business_logo_url: u.business_logo_url,
+      instagram_username: u.instagram_username,
+    });
     const newRefreshToken = signRefreshToken(user.id);
 
     res.cookie(REFRESH_COOKIE_NAME, newRefreshToken, refreshCookieOptions);
 
     res.json({
       token: accessToken,
-      user: { id: u.id, email: u.email, name: u.name, role: u.role, vendor_category: u.vendor_category },
+      user: {
+        id: u.id,
+        email: u.email,
+        name: u.name,
+        role: u.role,
+        vendor_category: u.vendor_category,
+        business_name: u.business_name,
+        business_category: u.business_category,
+        business_logo_url: u.business_logo_url,
+        instagram_username: u.instagram_username,
+      },
     });
   } catch (err) {
     res.clearCookie(REFRESH_COOKIE_NAME, { path: "/api/auth" });

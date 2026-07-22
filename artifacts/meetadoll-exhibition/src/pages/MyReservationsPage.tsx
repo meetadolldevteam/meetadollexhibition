@@ -4,7 +4,7 @@ import { useAuth } from "@/context/AuthContext";
 import { api, ApiError } from "@/lib/apiClient";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Store, Clock, CheckCircle2, XCircle, AlertCircle } from "lucide-react";
+import { Loader2, Store, Clock, CheckCircle2, XCircle, AlertCircle, Instagram } from "lucide-react";
 
 const logo = { url: "/assets/meetadoll-logo.jpg" };
 
@@ -26,12 +26,21 @@ const STATUS_META: Record<string, { label: string; variant: "default" | "seconda
   expired: { label: "Expired", variant: "outline", icon: <AlertCircle className="w-3 h-3" /> },
 };
 
+const CATEGORY_COLORS: Record<string, string> = {
+  Fashion: "bg-purple-100 text-purple-800",
+  Food: "bg-orange-100 text-orange-800",
+  Beauty: "bg-pink-100 text-pink-800",
+  Accessories: "bg-blue-100 text-blue-800",
+  "Art & Craft": "bg-green-100 text-green-800",
+  Others: "bg-gray-100 text-gray-700",
+};
+
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-NG", { day: "numeric", month: "short", year: "numeric" });
 }
 
 export default function MyReservationsPage() {
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, logout } = useAuth();
   const navigate = useNavigate();
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [loading, setLoading] = useState(true);
@@ -63,6 +72,11 @@ export default function MyReservationsPage() {
     }
   };
 
+  const handleLogout = async () => {
+    await logout();
+    navigate("/");
+  };
+
   if (authLoading || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -71,23 +85,85 @@ export default function MyReservationsPage() {
     );
   }
 
+  const categoryColor = user?.business_category
+    ? CATEGORY_COLORS[user.business_category] ?? "bg-gray-100 text-gray-700"
+    : "";
+
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b border-border px-5 py-4 flex items-center justify-between">
         <Link to="/">
           <img src={logo.url} alt="Meetadoll" className="h-10 w-auto" />
         </Link>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
           <span className="text-sm text-muted-foreground hidden sm:inline">{user?.name}</span>
           <Button asChild variant="ghost" size="sm" className="rounded-full">
             <Link to="/">Home</Link>
+          </Button>
+          <Button variant="ghost" size="sm" className="rounded-full text-muted-foreground" onClick={handleLogout}>
+            Sign out
           </Button>
         </div>
       </header>
 
       <main className="max-w-3xl mx-auto px-5 py-10">
-        <h1 className="font-display text-3xl font-bold mb-2">My Reservations</h1>
-        <p className="text-muted-foreground text-sm mb-8">Your stall reservation history for all Meetadoll exhibitions.</p>
+        <h1 className="font-display text-3xl font-bold mb-2">My Dashboard</h1>
+        <p className="text-muted-foreground text-sm mb-8">Your vendor profile and stall reservations.</p>
+
+        {/* Business profile card */}
+        {(user?.business_name || user?.business_category) && (
+          <div className="rounded-2xl border border-border bg-card overflow-hidden mb-8">
+            <div className="px-5 py-4 border-b border-border bg-muted/30">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Business Profile</p>
+            </div>
+            <div className="p-5 flex items-start gap-4">
+              {user.business_logo_url ? (
+                <img
+                  src={user.business_logo_url}
+                  alt={user.business_name ?? "Business logo"}
+                  className="w-16 h-16 rounded-xl object-cover border border-border shrink-0"
+                />
+              ) : (
+                <div className="w-16 h-16 rounded-xl bg-muted flex items-center justify-center shrink-0 border border-border">
+                  <Store className="w-7 h-7 text-muted-foreground" />
+                </div>
+              )}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                  <h2 className="font-display font-bold text-xl truncate">{user.business_name}</h2>
+                  {user.business_category && (
+                    <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full ${categoryColor}`}>
+                      {user.business_category}
+                    </span>
+                  )}
+                </div>
+                {user.instagram_username && (
+                  <a
+                    href={`https://instagram.com/${user.instagram_username}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mt-0.5"
+                  >
+                    <Instagram className="w-3.5 h-3.5" />
+                    @{user.instagram_username}
+                  </a>
+                )}
+                <div className="mt-3 grid grid-cols-2 gap-3 text-xs text-muted-foreground">
+                  <div>
+                    <p className="uppercase tracking-wide font-semibold text-[10px] mb-0.5">Full name</p>
+                    <p className="text-foreground font-medium">{user.name}</p>
+                  </div>
+                  <div>
+                    <p className="uppercase tracking-wide font-semibold text-[10px] mb-0.5">Email</p>
+                    <p className="text-foreground font-medium truncate">{user.email}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <h2 className="font-display text-xl font-bold mb-4">My Reservations</h2>
 
         {payError && (
           <div className="mb-6 rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
@@ -96,7 +172,7 @@ export default function MyReservationsPage() {
         )}
 
         {reservations.length === 0 ? (
-          <div className="text-center py-20 text-muted-foreground">
+          <div className="text-center py-16 text-muted-foreground">
             <Store className="w-10 h-10 mx-auto mb-3 opacity-40" />
             <p className="font-medium">No reservations yet</p>
             <p className="text-sm mt-1">Reserve a stall from the home page to get started.</p>
