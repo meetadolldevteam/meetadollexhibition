@@ -69,12 +69,14 @@ router.post(
       .withMessage("Name is required")
       .isLength({ min: 2, max: 100 })
       .withMessage("Name must be between 2 and 100 characters")
-      .matches(/^[a-zA-ZÀ-ÿ\s'.\\-]+$/)
+      .matches(/^[\p{L}\s'.\-]+$/u)
       .withMessage("Name must contain letters only"),
     body("phone")
       .optional({ nullable: true, checkFalsy: true })
-      .trim()
-      .matches(/^(\+?234|0)[789]\d{9}$/)
+      .customSanitizer((val: string) =>
+        typeof val === "string" ? val.replace(/[\s\-().+]/g, "").replace(/^234/, "0") : val
+      )
+      .matches(/^0[789]\d{9}$/)
       .withMessage("Must be a valid Nigerian phone number (e.g. 08012345678)"),
     body("vendor_category")
       .optional({ nullable: true, checkFalsy: true })
