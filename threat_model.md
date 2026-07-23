@@ -9,6 +9,7 @@ Production scope assumptions for this repository:
 - `artifacts/mockup-sandbox` is dev-only unless future code or deployment config routes production traffic to it.
 - The deployment is public, so all unauthenticated routes and webhook endpoints are internet-reachable.
 - TLS is handled by the platform and is not a primary review target.
+- Current product behavior intentionally exposes topline dashboard revenue and pending-payment metrics to all authenticated admin tiers, including `staff`; future scans should not treat that visibility alone as a privilege violation unless the product role model changes.
 
 ## Assets
 
