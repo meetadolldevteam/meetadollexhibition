@@ -47,39 +47,72 @@ export async function cancelMyReservation(req: AuthRequest, res: Response): Prom
       return;
     }
 
-    if (!["held", "confirmed"].includes(reservation.status)) {
-      res.status(400).json({ error: `Cannot cancel a reservation with status "${reservation.status}"` });
-      return;
-    }
-
-    // ── Block cancellation of paid reservations ────────────────────────────────
-    // Vendors cannot self-cancel after payment is complete; admins can via the
-    // admin panel. This prevents accidental or fraudulent release of paid stalls.
-    const { data: payment } = await supabase
-      .from("payments")
-      .select("status")
-      .eq("reservation_id", id)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    const paidStatuses = ["success", "paid"];
-    if (payment && paidStatuses.includes((payment as { status: string }).status)) {
-      res.status(403).json({
-        error: "Reservations with completed payments cannot be cancelled. Please contact support.",
-        code: "RESERVATION_PAID",
+    // ── Only held reservations may be self-cancelled by vendors ─────────────────
+    // Confirmed reservations are tied to a successful payment; they can only be
+    // cancelled by an admin via the admin panel (which runs the refund flow first).
+    if (reservation.status !== "held") {
+      res.status(400).json({
+        error: reservation.status === "confirmed"
+          ? "Confirmed reservations cannot be self-cancelled. Please contact support."
+          : `Cannot cancel a reservation with status "${reservation.status}"`,
       });
       return;
     }
 
-    const { error: updateErr } = await supabase
+    // ── Block cancellation once any payment has been initiated ───────────────
+    // As soon as a payment record exists with status 'pending', 'success', or
+    // 'paid' the vendor must not be able to cancel. Blocking on 'pending' closes
+    // the race between self-cancellation and the Paystack webhook: once checkout
+    // starts a pending record is created, and any cancellation attempt after
+    // that point is rejected before the atomic update below even runs.
+    // 'success'/'paid' cover the narrow window between payment confirmation and
+    // reservation status transitioning to 'confirmed'.
+    const { data: payment } = await supabase
+      .from("payments")
+      .select("status")
+      .eq("reservation_id", id)
+      .in("status", ["pending", "success", "paid"])
+      .limit(1)
+      .maybeSingle();
+
+    if (payment) {
+      const isPending = (payment as { status: string }).status === "pending";
+      res.status(403).json({
+        error: isPending
+          ? "A payment is already in progress for this reservation. Please complete checkout or wait for it to expire before cancelling."
+          : "Reservations with completed payments cannot be cancelled. Please contact support.",
+        code: isPending ? "PAYMENT_IN_PROGRESS" : "RESERVATION_PAID",
+      });
+      return;
+    }
+
+    // ── Atomic conditional update — only transitions from 'held' ─────────────
+    // Adding status = 'held' to the WHERE clause means a concurrent webhook
+    // confirmation cannot be silently overwritten: if the webhook fires between
+    // our read above and this update, the condition won't match and we'll get
+    // back null instead of clobbering the confirmed state.
+    const { data: cancelled, error: updateErr } = await supabase
       .from("reservations")
       .update({ status: "cancelled" })
-      .eq("id", id);
+      .eq("id", id)
+      .eq("user_id", userId)
+      .eq("status", "held")
+      .select("id")
+      .maybeSingle();
 
     if (updateErr) {
       logger.error({ err: updateErr }, "Failed to cancel reservation");
       res.status(500).json({ error: "Failed to cancel reservation" });
+      return;
+    }
+
+    if (!cancelled) {
+      // A concurrent operation (e.g. payment webhook) changed the reservation
+      // state between our read and this update.
+      res.status(409).json({
+        error: "Reservation could not be cancelled — it may have just been confirmed. Please contact support.",
+        code: "RESERVATION_STATE_CHANGED",
+      });
       return;
     }
 

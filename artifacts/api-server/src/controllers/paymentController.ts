@@ -24,7 +24,8 @@ function canVendorBookStall(
   vendorCategory: string | null | undefined,
   stallCategory: string | null | undefined
 ): boolean {
-  if (!vendorCategory || !stallCategory) return true;
+  if (!stallCategory) return true; // stall has no category restriction — allow all vendors
+  if (!vendorCategory) return false; // stall is restricted but vendor has no category set — deny
   if (vendorCategory === "food") return stallCategory === "Food";
   if (vendorCategory === "fashion" || vendorCategory === "others") return stallCategory === "Fashion & Others";
   return true;
@@ -140,10 +141,16 @@ export async function initiateDirectPayment(req: AuthRequest, res: Response): Pr
       return;
     }
 
-    // ── Initiate Paystack transaction ─────────────────────────────────────────
+    // ── Pre-generate tx reference and record pending payment FIRST ───────────
+    // Inserting the pending payment record before calling Paystack ensures that
+    // any concurrent self-cancellation attempt is blocked by the payment-status
+    // guard in cancelMyReservation. Without this ordering a vendor could cancel
+    // the held reservation in the gap between Paystack initiation and record
+    // insertion, defeating the cancellation guard.
     const txRef = `MTD-${uuidv4()}`;
     const vendorEmail = userData?.email ?? user.email;
     const amount = claimedStall.price as number;
+    const paymentId = uuidv4();
 
     // Load exhibition info for metadata
     const { data: stallExhData } = await supabase
@@ -152,6 +159,23 @@ export async function initiateDirectPayment(req: AuthRequest, res: Response): Pr
       .eq("id", stall_id)
       .single();
     const exhibitionName = (stallExhData as any)?.exhibitions?.name ?? "";
+
+    const { error: paymentInsertErr } = await supabase.from("payments").insert({
+      id: paymentId,
+      reservation_id: reservationId,
+      amount,
+      transaction_reference: txRef,
+      gateway: "paystack",
+      status: "pending",
+    });
+
+    if (paymentInsertErr) {
+      logger.error({ err: paymentInsertErr }, "Failed to insert pending payment — releasing reservation");
+      await supabase.from("reservations").delete().eq("id", reservationId);
+      await supabase.from("stalls").update({ status: "available" }).eq("id", stall_id);
+      res.status(500).json({ error: "Failed to initiate payment. Please try again." });
+      return;
+    }
 
     const paystackResponse = await fetch(`${PAYSTACK_BASE}/transaction/initialize`, {
       method: "POST",
@@ -175,23 +199,14 @@ export async function initiateDirectPayment(req: AuthRequest, res: Response): Pr
     };
 
     if (!paystackData.status || !paystackData.data?.authorization_url) {
-      logger.error({ paystackData }, "Paystack initiation failed — releasing reservation");
-      // Release stall and reservation on Paystack failure
+      logger.error({ paystackData }, "Paystack initiation failed — releasing reservation and payment");
+      // Clean up payment record, reservation, and stall on Paystack failure
+      await supabase.from("payments").delete().eq("id", paymentId);
       await supabase.from("reservations").delete().eq("id", reservationId);
       await supabase.from("stalls").update({ status: "available" }).eq("id", stall_id);
       res.status(502).json({ error: "Payment gateway error. Please try again." });
       return;
     }
-
-    // ── Record pending payment ────────────────────────────────────────────────
-    await supabase.from("payments").insert({
-      id: uuidv4(),
-      reservation_id: reservationId,
-      amount,
-      transaction_reference: txRef,
-      gateway: "paystack",
-      status: "pending",
-    });
 
     // Invalidate stall cache
     if (claimedStall.exhibition_id) {
@@ -266,7 +281,27 @@ export async function initiatePayment(req: AuthRequest, res: Response): Promise<
       .eq("id", user.id)
       .single();
 
+    // ── Pre-generate tx reference and record pending payment FIRST ───────────
+    // Same ordering guarantee as initiateDirectPayment: inserting the pending
+    // record before calling Paystack ensures the cancellation guard fires for
+    // any concurrent self-cancel attempt.
     const txRef = `MTD-${uuidv4()}`;
+    const paymentId = uuidv4();
+
+    const { error: paymentInsertErr } = await supabase.from("payments").insert({
+      id: paymentId,
+      reservation_id,
+      amount: reservationAmount,
+      transaction_reference: txRef,
+      gateway: "paystack",
+      status: "pending",
+    });
+
+    if (paymentInsertErr) {
+      logger.error({ err: paymentInsertErr }, "Failed to insert pending payment record");
+      res.status(500).json({ error: "Failed to initiate payment. Please try again." });
+      return;
+    }
 
     const paystackResponse = await fetch(`${PAYSTACK_BASE}/transaction/initialize`, {
       method: "POST",
@@ -293,19 +328,11 @@ export async function initiatePayment(req: AuthRequest, res: Response): Promise<
     };
 
     if (!paystackData.status || !paystackData.data?.authorization_url) {
-      logger.error({ status: paystackData.status }, "Paystack payment initiation failed");
+      logger.error({ status: paystackData.status }, "Paystack payment initiation failed — removing pending payment record");
+      await supabase.from("payments").delete().eq("id", paymentId);
       res.status(502).json({ error: "Payment gateway error. Please try again." });
       return;
     }
-
-    await supabase.from("payments").insert({
-      id: uuidv4(),
-      reservation_id,
-      amount: reservationAmount,
-      transaction_reference: txRef,
-      gateway: "paystack",
-      status: "pending",
-    });
 
     res.json({ payment_link: paystackData.data.authorization_url, tx_ref: txRef });
   } catch (err) {
@@ -408,22 +435,39 @@ export async function paymentWebhook(req: Request, res: Response): Promise<void>
       return;
     }
 
-    if (reservation.status !== "held") {
-      logger.warn(
-        { reference, reservation_id: payment.reservation_id, reservation_status: reservation.status },
-        "Webhook: reservation is not in held state — refusing to confirm"
-      );
-      await supabase.from("payments").update({ status: "failed" }).eq("transaction_reference", reference);
-      res.status(200).json({ message: "Reservation no longer eligible for confirmation" });
-      return;
-    }
-
+    // ── Always persist a Paystack-verified charge as successful ───────────────
+    // A gateway-verified charge must never be silently discarded regardless of
+    // the current reservation state. We record the payment as success first,
+    // then attempt to confirm the reservation. If the reservation is already in
+    // a non-held state (e.g. cancelled by admin or cron) the conditional update
+    // below will match 0 rows and we log for manual reconciliation rather than
+    // writing a false 'failed' status.
     await supabase
       .from("payments")
       .update({ status: "success", amount: amountNaira })
       .eq("transaction_reference", reference);
 
-    await supabase.from("reservations").update({ status: "confirmed" }).eq("id", payment.reservation_id);
+    // Confirm the reservation conditionally so a concurrent admin/cron cancellation
+    // does not produce a confirmed reservation with mismatched state. If the update
+    // matches 0 rows the reservation has been separately cancelled; log for
+    // reconciliation but do NOT revert the payment — the charge is real.
+    const { data: confirmedReservation } = await supabase
+      .from("reservations")
+      .update({ status: "confirmed" })
+      .eq("id", payment.reservation_id)
+      .eq("status", "held")
+      .select("id")
+      .maybeSingle();
+
+    if (!confirmedReservation) {
+      logger.warn(
+        { reference, reservation_id: payment.reservation_id },
+        "Webhook: payment recorded as success but reservation was not in held state — manual reconciliation required"
+      );
+      res.status(200).json({ message: "Payment recorded; reservation requires reconciliation" });
+      return;
+    }
+
     await supabase.from("stalls").update({ status: "reserved" }).eq("id", reservation.stall_id);
 
     const stall = (reservation as any).stalls;

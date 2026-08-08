@@ -14,7 +14,8 @@ function stallsCacheKey(exhibitionId: string): string {
 
 /** Returns true if the vendor's category is allowed to book a stall with the given category */
 function canVendorBookStall(vendorCategory: string | null | undefined, stallCategory: string | null | undefined): boolean {
-  if (!vendorCategory || !stallCategory) return true; // no restriction if either is unset
+  if (!stallCategory) return true; // stall has no category restriction — allow all vendors
+  if (!vendorCategory) return false; // stall is restricted but vendor has no category set — deny
   if (vendorCategory === "food") return stallCategory === "Food";
   if (vendorCategory === "fashion" || vendorCategory === "others") return stallCategory === "Fashion & Others";
   return true; // unknown vendor_category — allow all stalls
@@ -149,10 +150,10 @@ export async function holdStall(req: AuthRequest, res: Response): Promise<void> 
       return;
     }
 
-    // ── Category check (parallel fetch) ───────────────────────────────────────
+    // ── Profile + category check (parallel fetch) ────────────────────────────
     const [stallCheck, userCheck] = await Promise.all([
       supabase.from("stalls").select("id, status, category").eq("id", stall_id).single(),
-      supabase.from("users").select("vendor_category").eq("id", userId).single(),
+      supabase.from("users").select("vendor_category, business_profile_complete").eq("id", userId).single(),
     ]);
 
     if (stallCheck.error || !stallCheck.data) {
@@ -160,8 +161,20 @@ export async function holdStall(req: AuthRequest, res: Response): Promise<void> 
       return;
     }
 
+    const userData = userCheck.data as { vendor_category: string | null; business_profile_complete?: boolean } | null;
+
+    // ── Business profile gate ─────────────────────────────────────────────────
+    // Vendors must complete their business profile before reserving a stall.
+    if (!userData?.business_profile_complete) {
+      res.status(403).json({
+        error: "Please complete your business profile before reserving a stall.",
+        code: "PROFILE_INCOMPLETE",
+      });
+      return;
+    }
+
     const stallCategory = (stallCheck.data as any).category as string | null;
-    const vendorCategory = (userCheck.data as any)?.vendor_category as string | null;
+    const vendorCategory = userData?.vendor_category ?? null;
 
     if (!canVendorBookStall(vendorCategory, stallCategory)) {
       res.status(403).json({
