@@ -484,3 +484,109 @@ export async function verifyEmail(req: Request, res: Response): Promise<void> {
     res.status(500).json({ error: "Internal server error" });
   }
 }
+
+// ── Forgot password ───────────────────────────────────────────────────────────
+
+export async function forgotPassword(req: Request, res: Response): Promise<void> {
+  const { email } = req.body as { email: string };
+
+  try {
+    const { data: user } = await supabase
+      .from("users")
+      .select("id, email, deleted_at")
+      .eq("email", email.toLowerCase().trim())
+      .single();
+
+    // Always respond the same way to avoid email enumeration
+    if (!user || (user as any).deleted_at) {
+      res.json({ message: "If an account exists for that email, a reset code has been sent.", userId: null });
+      return;
+    }
+
+    await createAndSendOtp(user.id, user.email, "password_reset");
+
+    res.json({ userId: user.id, message: "A 6-digit reset code has been sent to your email." });
+  } catch (err) {
+    logger.error({ err }, "forgotPassword error");
+    res.status(500).json({ error: "Internal server error" });
+  }
+}
+
+// ── Reset password ────────────────────────────────────────────────────────────
+
+export async function resetPassword(req: Request, res: Response): Promise<void> {
+  const { userId, otp, newPassword } = req.body as { userId: string; otp: string; newPassword: string };
+
+  try {
+    // Verify the OTP record
+    const { data: otpRecord } = await supabase
+      .from("otps")
+      .select("id, otp_code, expires_at, used, attempts, locked_until")
+      .eq("user_id", userId)
+      .eq("type", "password_reset")
+      .eq("used", false)
+      .gt("expires_at", new Date().toISOString())
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (!otpRecord) {
+      res.status(400).json({ error: "Code expired or not found. Please request a new one.", code: "OTP_INVALID" });
+      return;
+    }
+
+    const r = otpRecord as {
+      id: string; otp_code: string; expires_at: string;
+      used: boolean; attempts: number; locked_until: string | null;
+    };
+
+    if (r.locked_until && new Date(r.locked_until) > new Date()) {
+      const minutes = Math.ceil((new Date(r.locked_until).getTime() - Date.now()) / 60000);
+      res.status(429).json({
+        error: `Too many wrong attempts. Try again in ${minutes} minute(s).`,
+        code: "OTP_LOCKED",
+      });
+      return;
+    }
+
+    const isMatch = await bcrypt.compare(String(otp), r.otp_code);
+
+    if (!isMatch) {
+      const newAttempts = r.attempts + 1;
+      const updateData: Record<string, unknown> = { attempts: newAttempts };
+      if (newAttempts >= 3) {
+        updateData.locked_until = new Date(Date.now() + 15 * 60 * 1000).toISOString();
+      }
+      await supabase.from("otps").update(updateData).eq("id", r.id);
+
+      const remaining = Math.max(0, 3 - newAttempts);
+      if (remaining === 0) {
+        res.status(429).json({ error: "Too many wrong attempts. Please wait 15 minutes.", code: "OTP_LOCKED" });
+      } else {
+        res.status(400).json({ error: `Incorrect code. ${remaining} attempt(s) remaining.`, code: "OTP_WRONG" });
+      }
+      return;
+    }
+
+    // Mark OTP as used and update password
+    await supabase.from("otps").update({ used: true }).eq("id", r.id);
+
+    const hash = await bcrypt.hash(newPassword, 12);
+    const { error: updateErr } = await supabase
+      .from("users")
+      .update({ password_hash: hash })
+      .eq("id", userId);
+
+    if (updateErr) {
+      logger.error({ err: updateErr }, "Failed to update password");
+      res.status(500).json({ error: "Failed to update password" });
+      return;
+    }
+
+    logger.info({ userId }, "Password reset successfully");
+    res.json({ message: "Password updated successfully. You can now log in." });
+  } catch (err) {
+    logger.error({ err }, "resetPassword error");
+    res.status(500).json({ error: "Internal server error" });
+  }
+}

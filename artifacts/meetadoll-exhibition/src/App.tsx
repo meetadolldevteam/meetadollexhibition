@@ -9,6 +9,7 @@ import { initGA, trackPageView } from "@/lib/analytics";
 import Index from "./pages/Index.tsx";
 import NotFound from "./pages/NotFound.tsx";
 import LoginPage from "./pages/LoginPage.tsx";
+import ForgotPasswordPage from "./pages/ForgotPasswordPage.tsx";
 import RegisterPage from "./pages/RegisterPage.tsx";
 import PaymentCallbackPage from "./pages/PaymentCallbackPage.tsx";
 import MyReservationsPage from "./pages/MyReservationsPage.tsx";
@@ -135,6 +136,7 @@ const App = () => {
             <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/login" element={<LoginPage />} />
+              <Route path="/forgot-password" element={<ForgotPasswordPage />} />
               <Route path="/register" element={<RegisterPage />} />
               <Route path="/payment/callback" element={<PaymentCallbackPage />} />
               <Route path="/my-reservations" element={<MyReservationsPage />} />

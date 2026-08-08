@@ -273,7 +273,7 @@ export async function sendConfirmationEmail(data: ConfirmationEmailData): Promis
 export async function sendOtpEmail(
   to: string,
   code: string,
-  type: "registration" | "login"
+  type: "registration" | "login" | "password_reset"
 ): Promise<void> {
   const resend = getResendClient();
   if (!resend) {
@@ -281,10 +281,15 @@ export async function sendOtpEmail(
     return;
   }
 
-  const purpose = type === "registration" ? "verify your email" : "confirm your login";
+  const purpose =
+    type === "registration" ? "verify your email" :
+    type === "password_reset" ? "reset your password" :
+    "confirm your login";
   const subject =
     type === "registration"
       ? "Your Meetadoll Exhibition verification code"
+      : type === "password_reset"
+      ? "Reset your Meetadoll Exhibition password"
       : "Your Meetadoll Exhibition login code";
 
   const html = `<!DOCTYPE html>

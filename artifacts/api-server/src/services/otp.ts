@@ -15,7 +15,7 @@ const generationLocks = new Map<string, boolean>();
 export async function createAndSendOtp(
   userId: string,
   email: string,
-  type: "registration" | "login"
+  type: "registration" | "login" | "password_reset"
 ): Promise<void> {
   const lockKey = `${userId}:${type}`;
 

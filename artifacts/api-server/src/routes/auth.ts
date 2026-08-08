@@ -1,7 +1,7 @@
 import { Router, Request, Response, NextFunction } from "express";
 import { body } from "express-validator";
 import multer from "multer";
-import { register, login, verifyEmail, refresh, logout, completeBusinessProfile } from "../controllers/authController";
+import { register, login, verifyEmail, refresh, logout, completeBusinessProfile, forgotPassword, resetPassword } from "../controllers/authController";
 import { verifyOtp, resendOtp, sendOtpEndpoint } from "../controllers/otpController";
 import { validate } from "../middleware/validate";
 import { authenticate } from "../middleware/auth";
@@ -174,5 +174,34 @@ router.post(
 router.post("/verify-email", [body("token").trim().notEmpty()], validate, verifyEmail);
 router.post("/refresh", refresh);
 router.post("/logout", logout);
+
+// ── Password reset ────────────────────────────────────────────────────────────
+router.post(
+  "/forgot-password",
+  otpResendRateLimiter,
+  [body("email").trim().isEmail().withMessage("Must be a valid email address").normalizeEmail()],
+  validate,
+  forgotPassword
+);
+
+router.post(
+  "/reset-password",
+  otpVerifyRateLimiter,
+  [
+    body("userId").trim().notEmpty().withMessage("User ID is required"),
+    body("otp")
+      .isLength({ min: 6, max: 6 })
+      .withMessage("OTP must be exactly 6 digits")
+      .isNumeric()
+      .withMessage("OTP must be numeric"),
+    body("newPassword")
+      .isLength({ min: 8 })
+      .withMessage("Password must be at least 8 characters")
+      .matches(/\d/)
+      .withMessage("Password must contain at least one number"),
+  ],
+  validate,
+  resetPassword
+);
 
 export default router;

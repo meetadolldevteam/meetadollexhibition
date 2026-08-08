@@ -200,6 +200,12 @@ export default function LoginPage() {
               <Button type="submit" className="rounded-full mt-1" disabled={loading}>
                 {loading ? "Signing in…" : "Sign in"}
               </Button>
+
+              <p className="text-center text-sm">
+                <Link to="/forgot-password" className="text-muted-foreground hover:text-primary hover:underline">
+                  Forgot password?
+                </Link>
+              </p>
             </form>
 
             <p className="text-center text-sm text-muted-foreground mt-6">
