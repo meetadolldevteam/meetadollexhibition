@@ -234,15 +234,17 @@ export async function getVendors(req: Request, res: Response): Promise<void> {
   try {
     const { search } = req.query;
 
+    // Include soft-deleted accounts so admins can still see them (with Deleted badge)
     let query = supabase
       .from("users")
       .select(`
         id, name, email, phone, created_at,
         vendor_category, business_name, business_logo_url,
         instagram_username, business_phone, business_profile_complete,
+        deleted_at, deletion_reason, legal_hold,
         reservations ( id, status, reservation_code, checked_in_at, stalls ( stall_number, package ) )
       `)
-      .eq("role", "vendor")
+      .in("role", ["vendor", "deleted"])
       .order("created_at", { ascending: false });
 
     if (search) {
@@ -257,6 +259,125 @@ export async function getVendors(req: Request, res: Response): Promise<void> {
     res.json({ vendors: data ?? [] });
   } catch (err) {
     logger.error({ err }, "Admin getVendors error");
+    res.status(500).json({ error: "Internal server error" });
+  }
+}
+
+// ── Soft-delete a vendor account ─────────────────────────────────────────────
+
+export async function deleteVendor(req: AuthRequest, res: Response): Promise<void> {
+  const { id } = req.params;
+  const { reason } = req.body as { reason?: string };
+
+  try {
+    // Confirm target exists and is a vendor (not already deleted, not an admin)
+    const { data: target, error: fetchErr } = await supabase
+      .from("users")
+      .select("id, name, email, role, deleted_at")
+      .eq("id", id)
+      .single();
+
+    if (fetchErr || !target) {
+      res.status(404).json({ error: "User not found" });
+      return;
+    }
+    if ((target as any).deleted_at) {
+      res.status(409).json({ error: "Account is already deleted" });
+      return;
+    }
+    if (!["vendor"].includes((target as any).role)) {
+      res.status(403).json({ error: "Only vendor accounts can be deleted through this endpoint" });
+      return;
+    }
+
+    const anonymisedEmail = `deleted_${id}@deleted.com`;
+
+    const { error: updateErr } = await supabase
+      .from("users")
+      .update({
+        deleted_at: new Date().toISOString(),
+        deletion_reason: reason || null,
+        role: "deleted",
+        password_hash: "",
+        email: anonymisedEmail,
+      } as any)
+      .eq("id", id);
+
+    if (updateErr) {
+      logger.error({ err: updateErr }, "Failed to soft-delete vendor");
+      res.status(500).json({ error: "Failed to delete account" });
+      return;
+    }
+
+    void logActivity({
+      adminId: req.user!.id,
+      adminName: req.user!.name || req.user!.email,
+      adminRole: req.user!.role,
+      action: "VENDOR_DELETED",
+      entityType: "user",
+      entityId: String(id),
+      details: {
+        name: (target as any).name,
+        originalEmail: (target as any).email,
+        reason: reason || null,
+      },
+    });
+
+    logger.info({ targetId: id, adminId: req.user!.id }, "Vendor account soft-deleted");
+    res.json({ message: "Account deleted successfully" });
+  } catch (err) {
+    logger.error({ err }, "Admin deleteVendor error");
+    res.status(500).json({ error: "Internal server error" });
+  }
+}
+
+// ── Toggle legal hold on a deleted account ───────────────────────────────────
+
+export async function toggleLegalHold(req: AuthRequest, res: Response): Promise<void> {
+  const { id } = req.params;
+
+  try {
+    const { data: target, error: fetchErr } = await supabase
+      .from("users")
+      .select("id, name, legal_hold, deleted_at")
+      .eq("id", id)
+      .single();
+
+    if (fetchErr || !target) {
+      res.status(404).json({ error: "User not found" });
+      return;
+    }
+    if (!(target as any).deleted_at) {
+      res.status(400).json({ error: "Legal hold can only be set on deleted accounts" });
+      return;
+    }
+
+    const newValue = !((target as any).legal_hold);
+
+    const { error: updateErr } = await supabase
+      .from("users")
+      .update({ legal_hold: newValue } as any)
+      .eq("id", id);
+
+    if (updateErr) {
+      logger.error({ err: updateErr }, "Failed to toggle legal hold");
+      res.status(500).json({ error: "Failed to update legal hold" });
+      return;
+    }
+
+    void logActivity({
+      adminId: req.user!.id,
+      adminName: req.user!.name || req.user!.email,
+      adminRole: req.user!.role,
+      action: newValue ? "LEGAL_HOLD_SET" : "LEGAL_HOLD_LIFTED",
+      entityType: "user",
+      entityId: String(id),
+      details: { name: (target as any).name, legal_hold: newValue },
+    });
+
+    res.json({ legal_hold: newValue });
+  } catch (err) {
+    logger.error({ err }, "Admin toggleLegalHold error");
     res.status(500).json({ error: "Internal server error" });
   }
 }

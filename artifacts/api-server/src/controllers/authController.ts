@@ -222,7 +222,7 @@ export async function login(req: Request, res: Response): Promise<void> {
     const { data: user, error } = await supabase
       .from("users")
       .select(`
-        id, email, name, role, password_hash,
+        id, email, name, role, password_hash, deleted_at,
         vendor_category, business_name, business_category,
         business_logo_url, instagram_username, business_profile_complete
       `)
@@ -231,6 +231,12 @@ export async function login(req: Request, res: Response): Promise<void> {
 
     if (error || !user) {
       res.status(401).json({ error: "Invalid email or password" });
+      return;
+    }
+
+    // Soft-deleted accounts cannot log in
+    if ((user as any).deleted_at) {
+      res.status(401).json({ error: "This account has been deactivated" });
       return;
     }
 

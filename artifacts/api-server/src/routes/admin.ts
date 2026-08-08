@@ -10,6 +10,8 @@ import {
   checkInVendor,
   updateStall,
   getVendors,
+  deleteVendor,
+  toggleLegalHold,
   getPaymentsSummary,
   getAllPayments,
   flagPayment,
@@ -48,6 +50,8 @@ router.patch(
 
 // Vendors
 router.get("/vendors", getVendors);
+router.delete("/vendors/:id", requireManagerRole, deleteVendor);
+router.patch("/vendors/:id/legal-hold", requireSuperAdmin, toggleLegalHold);
 
 // Payments
 router.get("/payments/summary", getPaymentsSummary);

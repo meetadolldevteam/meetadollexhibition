@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { api } from "@/lib/apiClient";
-import { Search, X, ChevronRight, Download, ExternalLink } from "lucide-react";
+import { Search, X, ChevronRight, Download, ExternalLink, Trash2, Shield, ShieldOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface Reservation {
@@ -23,6 +23,9 @@ interface Vendor {
   instagram_username: string | null;
   business_phone: string | null;
   business_profile_complete: boolean | null;
+  deleted_at: string | null;
+  deletion_reason: string | null;
+  legal_hold: boolean | null;
   reservations: Reservation[];
 }
 
@@ -34,7 +37,7 @@ const STATUS_CLS: Record<string, string> = {
 };
 
 function hasPaid(v: Vendor) {
-  return v.reservations?.some((r) => r.status === "confirmed");
+  return !v.deleted_at && v.reservations?.some((r) => r.status === "confirmed");
 }
 
 async function downloadLogo(url: string, businessName: string) {
@@ -52,12 +55,84 @@ async function downloadLogo(url: string, businessName: string) {
   }
 }
 
+// ── Confirm Delete Modal ──────────────────────────────────────────────────────
+
+interface DeleteModalProps {
+  vendor: Vendor;
+  onConfirm: (reason: string) => void;
+  onCancel: () => void;
+  loading: boolean;
+}
+
+function DeleteModal({ vendor, onConfirm, onCancel, loading }: DeleteModalProps) {
+  const [reason, setReason] = useState("");
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center" onClick={onCancel}>
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+      <div
+        className="relative bg-background w-full max-w-sm mx-4 rounded-2xl border border-border shadow-2xl p-6 space-y-4"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-full bg-red-100 dark:bg-red-900/40 flex items-center justify-center flex-shrink-0">
+            <Trash2 className="w-5 h-5 text-red-600 dark:text-red-400" />
+          </div>
+          <div>
+            <p className="font-semibold text-sm">Delete account?</p>
+            <p className="text-xs text-muted-foreground">{vendor.name}</p>
+          </div>
+        </div>
+
+        <p className="text-sm text-muted-foreground">
+          This will anonymise the email, clear the password, and block login. All reservations and
+          payment records are preserved. This cannot be undone.
+        </p>
+
+        <div className="space-y-1.5">
+          <label className="text-xs font-medium text-muted-foreground">
+            Reason <span className="text-muted-foreground/60">(optional)</span>
+          </label>
+          <textarea
+            className="w-full rounded-lg border border-border bg-secondary/30 px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary/30"
+            rows={3}
+            placeholder="e.g. Duplicate account, policy violation…"
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+          />
+        </div>
+
+        <div className="flex gap-2 justify-end">
+          <Button variant="ghost" size="sm" onClick={onCancel} disabled={loading}>
+            Cancel
+          </Button>
+          <Button
+            variant="destructive"
+            size="sm"
+            disabled={loading}
+            onClick={() => onConfirm(reason)}
+          >
+            {loading ? "Deleting…" : "Delete account"}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Main panel ────────────────────────────────────────────────────────────────
+
 export default function VendorsPanel() {
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [tab, setTab] = useState<"paid" | "all">("paid");
+  const [tab, setTab] = useState<"paid" | "all" | "deleted">("paid");
   const [selected, setSelected] = useState<Vendor | null>(null);
+
+  // Action states
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [legalHoldLoading, setLegalHoldLoading] = useState(false);
+  const [actionError, setActionError] = useState("");
 
   const load = useCallback(() => {
     setLoading(true);
@@ -70,7 +145,14 @@ export default function VendorsPanel() {
 
   useEffect(() => { load(); }, [load]);
 
-  const base = tab === "paid" ? vendors.filter(hasPaid) : vendors;
+  const activeVendors = vendors.filter((v) => !v.deleted_at);
+  const deletedVendors = vendors.filter((v) => v.deleted_at);
+
+  const base =
+    tab === "paid" ? activeVendors.filter(hasPaid) :
+    tab === "deleted" ? deletedVendors :
+    activeVendors;
+
   const filtered = base.filter((v) => {
     if (!search) return true;
     const q = search.toLowerCase();
@@ -81,23 +163,63 @@ export default function VendorsPanel() {
     );
   });
 
-  const paidCount = vendors.filter(hasPaid).length;
+  const paidCount = activeVendors.filter(hasPaid).length;
+
+  // ── Delete action ──────────────────────────────────────────────────────────
+  const handleDelete = async (reason: string) => {
+    if (!selected) return;
+    setDeleteLoading(true);
+    setActionError("");
+    try {
+      await api.delete(`/admin/vendors/${selected.id}`, { body: { reason } });
+      setShowDeleteModal(false);
+      setSelected(null);
+      load();
+    } catch (err: any) {
+      setActionError(err?.message ?? "Failed to delete account");
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
+
+  // ── Legal hold toggle ─────────────────────────────────────────────────────
+  const handleLegalHold = async () => {
+    if (!selected) return;
+    setLegalHoldLoading(true);
+    setActionError("");
+    try {
+      const res = await api.patch<{ legal_hold: boolean }>(`/admin/vendors/${selected.id}/legal-hold`);
+      // Update local state so the modal reflects the new value immediately
+      setSelected((prev) => prev ? { ...prev, legal_hold: res.legal_hold } : prev);
+      setVendors((prev) =>
+        prev.map((v) => (v.id === selected.id ? { ...v, legal_hold: res.legal_hold } : v))
+      );
+    } catch (err: any) {
+      setActionError(err?.message ?? "Failed to update legal hold");
+    } finally {
+      setLegalHoldLoading(false);
+    }
+  };
 
   return (
     <div className="space-y-4">
       {/* Tabs */}
       <div className="flex gap-1 p-1 rounded-xl bg-secondary/50 w-fit">
-        {(["paid", "all"] as const).map((t) => (
+        {([
+          { key: "paid", label: `Paid (${paidCount})` },
+          { key: "all", label: `All (${activeVendors.length})` },
+          { key: "deleted", label: `Deleted (${deletedVendors.length})` },
+        ] as const).map(({ key, label }) => (
           <button
-            key={t}
-            onClick={() => setTab(t)}
+            key={key}
+            onClick={() => setTab(key)}
             className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-              tab === t
+              tab === key
                 ? "bg-background shadow text-foreground"
                 : "text-muted-foreground hover:text-foreground"
             }`}
           >
-            {t === "paid" ? `Paid (${paidCount})` : `All (${vendors.length})`}
+            {label}
           </button>
         ))}
       </div>
@@ -137,7 +259,6 @@ export default function VendorsPanel() {
                   className="rounded-2xl border border-border bg-card overflow-hidden cursor-pointer hover:shadow-md transition-shadow"
                   onClick={() => setSelected(v)}
                 >
-                  {/* Logo / avatar */}
                   <div className="relative h-36 bg-secondary/30 flex items-center justify-center overflow-hidden">
                     {v.business_logo_url ? (
                       <>
@@ -166,8 +287,6 @@ export default function VendorsPanel() {
                       </div>
                     )}
                   </div>
-
-                  {/* Info */}
                   <div className="p-4 space-y-1">
                     <p className="font-semibold text-sm leading-tight truncate">
                       {v.business_name ?? v.name}
@@ -194,7 +313,7 @@ export default function VendorsPanel() {
           </div>
         )
       ) : (
-        /* All vendors — table */
+        /* All / Deleted — table */
         <>
           <div className="hidden md:block rounded-xl border border-border overflow-x-auto">
             <table className="w-full text-sm">
@@ -212,10 +331,27 @@ export default function VendorsPanel() {
                   <tr><td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">No vendors found.</td></tr>
                 ) : filtered.map((v) => {
                   const activeRes = v.reservations?.find((r) => ["confirmed", "held"].includes(r.status));
+                  const isDeleted = !!v.deleted_at;
                   return (
-                    <tr key={v.id} className="hover:bg-secondary/20 transition-colors cursor-pointer" onClick={() => setSelected(v)}>
+                    <tr
+                      key={v.id}
+                      className={`hover:bg-secondary/20 transition-colors cursor-pointer ${isDeleted ? "opacity-60" : ""}`}
+                      onClick={() => setSelected(v)}
+                    >
                       <td className="px-4 py-3">
-                        <p className="font-medium">{v.name}</p>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="font-medium">{v.name}</p>
+                          {isDeleted && (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400">
+                              Deleted
+                            </span>
+                          )}
+                          {isDeleted && v.legal_hold && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700">
+                              <Shield className="w-3 h-3" /> Legal hold
+                            </span>
+                          )}
+                        </div>
                         <p className="text-xs text-muted-foreground">{v.email}</p>
                       </td>
                       <td className="px-4 py-3 text-muted-foreground text-xs">{v.phone || "—"}</td>
@@ -252,15 +388,23 @@ export default function VendorsPanel() {
               <div className="py-8 text-center text-muted-foreground text-sm">No vendors found.</div>
             ) : filtered.map((v) => {
               const activeRes = v.reservations?.find((r) => ["confirmed", "held"].includes(r.status));
+              const isDeleted = !!v.deleted_at;
               return (
                 <button
                   key={v.id}
-                  className="w-full text-left rounded-xl border border-border bg-card p-4 space-y-2 transition-colors active:bg-secondary/60"
+                  className={`w-full text-left rounded-xl border border-border bg-card p-4 space-y-2 transition-colors active:bg-secondary/60 ${isDeleted ? "opacity-60" : ""}`}
                   onClick={() => setSelected(v)}
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
-                      <p className="font-semibold text-sm leading-tight truncate">{v.name}</p>
+                      <div className="flex items-center gap-1.5 flex-wrap mb-0.5">
+                        <p className="font-semibold text-sm leading-tight">{v.name}</p>
+                        {isDeleted && (
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400">
+                            Deleted
+                          </span>
+                        )}
+                      </div>
                       <p className="text-xs text-muted-foreground truncate">{v.email}</p>
                       {v.phone && <p className="text-xs text-muted-foreground">{v.phone}</p>}
                     </div>
@@ -286,7 +430,7 @@ export default function VendorsPanel() {
 
       {/* Detail modal */}
       {selected && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center" onClick={() => setSelected(null)}>
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center" onClick={() => { setSelected(null); setActionError(""); }}>
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
           <div
             className="relative bg-background w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl border border-border shadow-2xl max-h-[90vh] overflow-y-auto"
@@ -298,15 +442,42 @@ export default function VendorsPanel() {
 
             <div className="flex items-start justify-between px-5 pt-4 pb-3 border-b border-border">
               <div>
-                <p className="text-xs text-muted-foreground uppercase tracking-wide">Vendor Details</p>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide">Vendor Details</p>
+                  {selected.deleted_at && (
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400">
+                      Deleted
+                    </span>
+                  )}
+                  {selected.deleted_at && selected.legal_hold && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">
+                      <Shield className="w-3 h-3" /> Legal hold
+                    </span>
+                  )}
+                </div>
                 <h3 className="font-display text-xl font-bold leading-tight">{selected.name}</h3>
               </div>
-              <button onClick={() => setSelected(null)} className="text-muted-foreground hover:text-foreground p-1">
+              <button onClick={() => { setSelected(null); setActionError(""); }} className="text-muted-foreground hover:text-foreground p-1">
                 <X className="w-4 h-4" />
               </button>
             </div>
 
             <div className="px-5 py-4 space-y-5">
+              {/* Deletion info banner */}
+              {selected.deleted_at && (
+                <div className="rounded-xl border border-red-200 bg-red-50 dark:border-red-800/50 dark:bg-red-900/20 p-4 space-y-1">
+                  <p className="text-xs font-semibold text-red-700 dark:text-red-400 uppercase tracking-wide">Account deleted</p>
+                  <p className="text-xs text-red-600 dark:text-red-400">
+                    {new Date(selected.deleted_at).toLocaleString()}
+                  </p>
+                  {selected.deletion_reason && (
+                    <p className="text-sm text-red-700 dark:text-red-300 mt-1">
+                      Reason: {selected.deletion_reason}
+                    </p>
+                  )}
+                </div>
+              )}
+
               {/* Business profile */}
               {(selected.business_name || selected.business_logo_url) && (
                 <div className="rounded-xl border border-border p-4 space-y-3">
@@ -422,9 +593,64 @@ export default function VendorsPanel() {
                   </div>
                 )}
               </div>
+
+              {/* Admin actions */}
+              {actionError && (
+                <p className="text-sm text-destructive text-center">{actionError}</p>
+              )}
+
+              <div className="border-t border-border pt-4 space-y-2">
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Admin actions</p>
+
+                {/* Delete button — only for active accounts */}
+                {!selected.deleted_at && (
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    className="w-full gap-2"
+                    onClick={() => setShowDeleteModal(true)}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    Delete account
+                  </Button>
+                )}
+
+                {/* Legal hold toggle — only for deleted accounts */}
+                {selected.deleted_at && (
+                  <Button
+                    variant={selected.legal_hold ? "secondary" : "outline"}
+                    size="sm"
+                    className="w-full gap-2"
+                    disabled={legalHoldLoading}
+                    onClick={() => void handleLegalHold()}
+                  >
+                    {selected.legal_hold ? (
+                      <>
+                        <ShieldOff className="w-4 h-4" />
+                        {legalHoldLoading ? "Updating…" : "Lift legal hold"}
+                      </>
+                    ) : (
+                      <>
+                        <Shield className="w-4 h-4" />
+                        {legalHoldLoading ? "Updating…" : "Set legal hold"}
+                      </>
+                    )}
+                  </Button>
+                )}
+              </div>
             </div>
           </div>
         </div>
+      )}
+
+      {/* Delete confirmation modal */}
+      {showDeleteModal && selected && (
+        <DeleteModal
+          vendor={selected}
+          onConfirm={(reason) => void handleDelete(reason)}
+          onCancel={() => setShowDeleteModal(false)}
+          loading={deleteLoading}
+        />
       )}
     </div>
   );
