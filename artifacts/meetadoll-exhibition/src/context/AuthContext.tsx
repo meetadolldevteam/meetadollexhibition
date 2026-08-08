@@ -140,12 +140,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const timer = setInterval(() => {
       const last = parseInt(localStorage.getItem(LAST_ACTIVITY_KEY) ?? "0", 10);
       if (Date.now() - last > INACTIVITY_TIMEOUT_MS) {
-        // Best-effort server-side logout (revoke token in blocklist)
-        void api.post("/auth/logout").catch(() => {});
-        setAccessToken(null);
-        setUser(null);
-        localStorage.clear();
-        window.location.href = "/login?reason=inactive";
+        // Await server-side revocation before navigating.
+        // Page navigation cancels in-flight fetch requests, so we MUST
+        // complete the logout request (which revokes the JTIs in the
+        // blocklist) before redirecting. A 3-second ceiling prevents
+        // the user from being stuck if the server is unreachable.
+        void (async () => {
+          try {
+            await Promise.race([
+              api.post("/auth/logout"),
+              new Promise<void>((resolve) => setTimeout(resolve, 3_000)),
+            ]);
+          } catch { /* non-fatal: revocation is best-effort */ }
+          setAccessToken(null);
+          setUser(null);
+          localStorage.clear();
+          window.location.href = "/login?reason=inactive";
+        })();
       }
     }, 60_000);
 

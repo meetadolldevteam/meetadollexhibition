@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { body } from "express-validator";
 import { authenticate } from "../middleware/auth";
-import { requireAdmin, requireManagerRole, requireSuperAdmin } from "../middleware/roleCheck";
+import { requireAdmin, requireManagerRole, requireSuperAdmin, verifyRoleFromDb } from "../middleware/roleCheck";
 import { validate } from "../middleware/validate";
 import {
   getStats,
@@ -24,7 +24,10 @@ import {
 
 const router = Router();
 
-router.use(authenticate, requireAdmin);
+// verifyRoleFromDb re-fetches the caller's role from the database on every
+// admin request, so a demoted admin is blocked immediately rather than at
+// their token's 24-hour expiry.
+router.use(authenticate, verifyRoleFromDb, requireAdmin);
 
 // Dashboard stats
 router.get("/stats", getStats);

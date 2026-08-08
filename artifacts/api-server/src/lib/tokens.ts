@@ -17,6 +17,7 @@ export interface AccessTokenPayload {
 export interface RefreshTokenPayload {
   id: string;
   type: "refresh";
+  jti: string;
 }
 
 const ACCESS_TOKEN_EXPIRY = "24h";
@@ -24,6 +25,8 @@ const REFRESH_TOKEN_EXPIRY = "7d";
 export const REFRESH_TOKEN_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 // Access token lifetime in seconds — must match ACCESS_TOKEN_EXPIRY
 export const ACCESS_TOKEN_EXPIRY_SECS = 24 * 60 * 60;
+
+export const REFRESH_TOKEN_EXPIRY_SECS = 7 * 24 * 60 * 60;
 
 export function signAccessToken(payload: AccessTokenPayload): string {
   // Include a unique jti so this token can be individually revoked on logout
@@ -35,7 +38,8 @@ export function signAccessToken(payload: AccessTokenPayload): string {
 }
 
 export function signRefreshToken(userId: string): string {
-  const payload: RefreshTokenPayload = { id: userId, type: "refresh" };
+  // Include a unique jti so refresh tokens can be individually revoked on logout
+  const payload: RefreshTokenPayload = { id: userId, type: "refresh", jti: randomUUID() };
   return jwt.sign(payload, process.env.JWT_SECRET!, { expiresIn: REFRESH_TOKEN_EXPIRY });
 }
 

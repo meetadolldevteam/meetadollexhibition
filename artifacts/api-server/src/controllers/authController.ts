@@ -9,11 +9,13 @@ import {
   verifyRefreshToken,
   REFRESH_COOKIE_NAME,
   refreshCookieOptions,
+  REFRESH_TOKEN_EXPIRY_SECS,
 } from "../lib/tokens";
+import type { RefreshTokenPayload } from "../lib/tokens";
 import { createAndSendOtp } from "../services/otp";
 import { sendWelcomeEmail, sendAdminNotificationEmail } from "../services/email";
 import type { AuthRequest } from "../middleware/auth";
-import { revokeToken } from "../lib/tokenBlocklist";
+import { revokeToken, isRevoked } from "../lib/tokenBlocklist";
 
 interface MulterFile {
   fieldname: string;
@@ -306,6 +308,29 @@ export async function refresh(req: Request, res: Response): Promise<void> {
   try {
     const decoded = verifyRefreshToken(token);
 
+    // Reject refresh tokens that have been explicitly revoked (e.g. via logout).
+    if (isRevoked(decoded.jti)) {
+      res.clearCookie(REFRESH_COOKIE_NAME, { path: "/api/auth" });
+      res.status(401).json({ error: "Refresh token has been revoked", code: "TOKEN_REVOKED" });
+      return;
+    }
+
+    // Atomically consume the refresh token BEFORE the first await point.
+    //
+    // Node.js is single-threaded: no other request can run between synchronous
+    // statements. By calling revokeToken() here — before any await — the
+    // in-memory blocklist.set() executes in this tick. Any concurrent request
+    // carrying the same token will therefore see isRevoked() = true as soon as
+    // we yield to the event loop.
+    //
+    // The DB write inside revokeToken() is fire-and-forget (void) — persistence
+    // across server restarts is handled separately in Task #9.
+    const consumedExp = (decoded as RefreshTokenPayload & { exp?: number }).exp;
+    const consumedExpiresAt = consumedExp
+      ? new Date(consumedExp * 1000)
+      : new Date(Date.now() + REFRESH_TOKEN_EXPIRY_SECS * 1000);
+    void revokeToken(decoded.jti, consumedExpiresAt);
+
     const { data: user, error } = await supabase
       .from("users")
       .select("id, email, name, role, vendor_category, business_name, business_category, business_logo_url, instagram_username, business_profile_complete")
@@ -369,6 +394,8 @@ export async function refresh(req: Request, res: Response): Promise<void> {
 
 // ── Logout ────────────────────────────────────────────────────────────────────
 export async function logout(req: Request, res: Response): Promise<void> {
+  const revocations: Promise<void>[] = [];
+
   // Revoke the access token so it cannot be reused even before it expires.
   // We decode without verification so we can revoke even near-expired tokens.
   const authHeader = req.headers.authorization;
@@ -378,12 +405,29 @@ export async function logout(req: Request, res: Response): Promise<void> {
       const decoded = jwt.decode(token) as { jti?: string; exp?: number } | null;
       if (decoded?.jti && decoded?.exp) {
         const expiresAt = new Date(decoded.exp * 1000);
-        await revokeToken(decoded.jti, expiresAt);
+        revocations.push(revokeToken(decoded.jti, expiresAt));
       }
     } catch {
       // Non-fatal — proceed with logout regardless
     }
   }
+
+  // Revoke the refresh token so it cannot be used to mint new access tokens
+  // even if it was copied from the browser before logout.
+  const refreshTokenCookie = req.cookies?.[REFRESH_COOKIE_NAME];
+  if (refreshTokenCookie) {
+    try {
+      const decoded = jwt.decode(refreshTokenCookie) as { jti?: string; exp?: number } | null;
+      if (decoded?.jti && decoded?.exp) {
+        const expiresAt = new Date(decoded.exp * 1000);
+        revocations.push(revokeToken(decoded.jti, expiresAt));
+      }
+    } catch {
+      // Non-fatal — proceed with logout regardless
+    }
+  }
+
+  await Promise.all(revocations);
 
   res.clearCookie(REFRESH_COOKIE_NAME, { path: "/api/auth" });
   res.json({ message: "Logged out" });
