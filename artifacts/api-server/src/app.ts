@@ -6,7 +6,9 @@ import cookieParser from "cookie-parser";
 import pinoHttp from "pino-http";
 import router from "./routes";
 import { logger } from "./lib/logger";
+import cron from "node-cron";
 import { startHoldCleanupJob } from "./services/holdCleanup";
+import { loadBlocklistFromDb, cleanupExpiredTokens } from "./lib/tokenBlocklist";
 import { generalApiRateLimiter } from "./middleware/rateLimit";
 
 const app: Express = express();
@@ -131,5 +133,12 @@ app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
 });
 
 startHoldCleanupJob();
+
+// Load revoked token blocklist from Supabase (best-effort, in-memory fallback)
+void loadBlocklistFromDb();
+
+// Daily cleanup of expired revoked tokens (runs at 03:00 server time)
+cron.schedule("0 3 * * *", () => void cleanupExpiredTokens());
+logger.info("Revoked token cleanup cron started (daily at 03:00)");
 
 export default app;

@@ -63,7 +63,7 @@ export async function initiateDirectPayment(req: AuthRequest, res: Response): Pr
     // ── Fetch stall + user for category check ─────────────────────────────────
     const [stallCheck, userCheck] = await Promise.all([
       supabase.from("stalls").select("id, status, category, price, exhibition_id").eq("id", stall_id).single(),
-      supabase.from("users").select("vendor_category, name, email").eq("id", user.id).single(),
+      supabase.from("users").select("vendor_category, name, email, business_profile_complete").eq("id", user.id).single(),
     ]);
 
     if (stallCheck.error || !stallCheck.data) {
@@ -75,7 +75,22 @@ export async function initiateDirectPayment(req: AuthRequest, res: Response): Pr
       id: string; status: string; category: string | null;
       price: number; exhibition_id: string;
     };
-    const userData = userCheck.data as { vendor_category: string | null; name: string; email: string } | null;
+    const userData = userCheck.data as {
+      vendor_category: string | null;
+      name: string;
+      email: string;
+      business_profile_complete?: boolean;
+    } | null;
+
+    // ── Business profile gate ──────────────────────────────────────────────────
+    // Vendors must complete their business profile before reserving a stall.
+    if (!userData?.business_profile_complete) {
+      res.status(403).json({
+        error: "Please complete your business profile before reserving a stall.",
+        code: "PROFILE_INCOMPLETE",
+      });
+      return;
+    }
 
     if (!canVendorBookStall(userData?.vendor_category ?? null, stallData.category)) {
       res.status(403).json({

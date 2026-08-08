@@ -52,6 +52,26 @@ export async function cancelMyReservation(req: AuthRequest, res: Response): Prom
       return;
     }
 
+    // ── Block cancellation of paid reservations ────────────────────────────────
+    // Vendors cannot self-cancel after payment is complete; admins can via the
+    // admin panel. This prevents accidental or fraudulent release of paid stalls.
+    const { data: payment } = await supabase
+      .from("payments")
+      .select("status")
+      .eq("reservation_id", id)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    const paidStatuses = ["success", "paid"];
+    if (payment && paidStatuses.includes((payment as { status: string }).status)) {
+      res.status(403).json({
+        error: "Reservations with completed payments cannot be cancelled. Please contact support.",
+        code: "RESERVATION_PAID",
+      });
+      return;
+    }
+
     const { error: updateErr } = await supabase
       .from("reservations")
       .update({ status: "cancelled" })

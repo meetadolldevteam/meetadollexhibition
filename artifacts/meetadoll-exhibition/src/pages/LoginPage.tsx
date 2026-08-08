@@ -27,6 +27,7 @@ export default function LoginPage() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const next = params.get("next") ?? "/";
+  const inactiveLogout = params.get("reason") === "inactive";
 
   const [step, setStep] = useState<Step>("password");
   const [userId, setUserId] = useState("");
@@ -148,6 +149,12 @@ export default function LoginPage() {
             <p className="text-muted-foreground text-sm text-center mb-8">
               Sign in to manage your stall reservation
             </p>
+
+            {inactiveLogout && (
+              <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 text-center">
+                You were logged out due to inactivity.
+              </div>
+            )}
 
             <form onSubmit={handlePassword} className="flex flex-col gap-4">
               <div className="flex flex-col gap-1.5">

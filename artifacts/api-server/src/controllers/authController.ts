@@ -13,6 +13,7 @@ import {
 import { createAndSendOtp } from "../services/otp";
 import { sendWelcomeEmail, sendAdminNotificationEmail } from "../services/email";
 import type { AuthRequest } from "../middleware/auth";
+import { revokeToken } from "../lib/tokenBlocklist";
 
 interface MulterFile {
   fieldname: string;
@@ -367,7 +368,23 @@ export async function refresh(req: Request, res: Response): Promise<void> {
 }
 
 // ── Logout ────────────────────────────────────────────────────────────────────
-export async function logout(_req: Request, res: Response): Promise<void> {
+export async function logout(req: Request, res: Response): Promise<void> {
+  // Revoke the access token so it cannot be reused even before it expires.
+  // We decode without verification so we can revoke even near-expired tokens.
+  const authHeader = req.headers.authorization;
+  if (authHeader?.startsWith("Bearer ")) {
+    try {
+      const token = authHeader.slice(7);
+      const decoded = jwt.decode(token) as { jti?: string; exp?: number } | null;
+      if (decoded?.jti && decoded?.exp) {
+        const expiresAt = new Date(decoded.exp * 1000);
+        await revokeToken(decoded.jti, expiresAt);
+      }
+    } catch {
+      // Non-fatal — proceed with logout regardless
+    }
+  }
+
   res.clearCookie(REFRESH_COOKIE_NAME, { path: "/api/auth" });
   res.json({ message: "Logged out" });
 }

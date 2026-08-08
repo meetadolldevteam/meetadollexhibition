@@ -1,6 +1,15 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { api, setAccessToken } from "@/lib/apiClient";
 
+// ── Session timeout ────────────────────────────────────────────────────────────
+const INACTIVITY_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
+const LAST_ACTIVITY_KEY = "meetadoll_last_activity";
+const ACTIVITY_EVENTS = ["click", "keypress", "scroll", "mousemove"] as const;
+
+function recordActivity(): void {
+  localStorage.setItem(LAST_ACTIVITY_KEY, Date.now().toString());
+}
+
 interface User {
   id: string;
   email: string;
@@ -113,6 +122,40 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setAccessToken(null);
     setUser(null);
   }, []);
+
+  // ── Inactivity session timeout ─────────────────────────────────────────────
+  // Track user activity while logged in and auto-logout after 30 min of silence.
+  useEffect(() => {
+    if (!user) return;
+
+    // Stamp initial activity
+    recordActivity();
+
+    // Refresh the stamp on any interaction
+    ACTIVITY_EVENTS.forEach((evt) =>
+      window.addEventListener(evt, recordActivity, { passive: true })
+    );
+
+    // Check every 60 seconds
+    const timer = setInterval(() => {
+      const last = parseInt(localStorage.getItem(LAST_ACTIVITY_KEY) ?? "0", 10);
+      if (Date.now() - last > INACTIVITY_TIMEOUT_MS) {
+        // Best-effort server-side logout (revoke token in blocklist)
+        void api.post("/auth/logout").catch(() => {});
+        setAccessToken(null);
+        setUser(null);
+        localStorage.clear();
+        window.location.href = "/login?reason=inactive";
+      }
+    }, 60_000);
+
+    return () => {
+      ACTIVITY_EVENTS.forEach((evt) =>
+        window.removeEventListener(evt, recordActivity)
+      );
+      clearInterval(timer);
+    };
+  }, [user]);
 
   return (
     <AuthContext.Provider value={{ user, loading, login, verifyOtp, resendOtp, logout, refreshUser }}>

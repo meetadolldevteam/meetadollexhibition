@@ -1,8 +1,9 @@
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
+import { isRevoked } from "../lib/tokenBlocklist";
 
 export interface AuthRequest extends Request {
-  user?: { id: string; email: string; name: string; role: string };
+  user?: { id: string; email: string; name: string; role: string; jti?: string };
 }
 
 export function authenticate(req: AuthRequest, res: Response, next: NextFunction): void {
@@ -20,7 +21,20 @@ export function authenticate(req: AuthRequest, res: Response, next: NextFunction
   }
 
   try {
-    const payload = jwt.verify(token, secret) as { id: string; email: string; name: string; role: string };
+    const payload = jwt.verify(token, secret) as {
+      id: string;
+      email: string;
+      name: string;
+      role: string;
+      jti?: string;
+    };
+
+    // Reject tokens that have been explicitly revoked (e.g. via logout)
+    if (payload.jti && isRevoked(payload.jti)) {
+      res.status(401).json({ error: "Token has been revoked", code: "TOKEN_REVOKED" });
+      return;
+    }
+
     req.user = payload;
     next();
   } catch (err) {
