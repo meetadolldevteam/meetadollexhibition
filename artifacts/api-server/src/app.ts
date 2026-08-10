@@ -54,14 +54,18 @@ app.use((_req: Request, res: Response, next: NextFunction) => {
   next();
 });
 
-// ── CORS — only allow the production domain + Replit dev preview URLs ─────────
-const PRODUCTION_ORIGIN = "https://meetadollexhibition.com";
+// ── CORS — allow the production domains, Vercel preview, and Replit previews ──
+const productionOrigins = [
+  "https://meetadollexhibition-meetadoll-exhibition-eotnci7d7.vercel.app",
+  "https://meetadollexhibition.com",
+  "https://www.meetadollexhibition.com",
+];
 const replitDevOrigins = (process.env.REPLIT_DOMAINS ?? "")
   .split(",")
   .map((d) => `https://${d.trim()}`)
   .filter((d) => d !== "https://");
 
-const allowedOrigins = new Set([PRODUCTION_ORIGIN, ...replitDevOrigins]);
+const allowedOrigins = new Set([...productionOrigins, ...replitDevOrigins]);
 
 app.use(
   cors({

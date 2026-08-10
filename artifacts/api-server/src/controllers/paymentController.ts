@@ -9,6 +9,8 @@ import { safeGenerateTicketPDF } from "../services/ticketGenerator";
 import { AuthRequest } from "../middleware/auth";
 
 const PAYSTACK_BASE = "https://api.paystack.co";
+const PUBLIC_API_ORIGIN = "https://meetadollexhibition-api.onrender.com";
+const PAYSTACK_CALLBACK_URL = `${PUBLIC_API_ORIGIN}/api/payments/callback`;
 
 function getPaystackKey(): string | null {
   const key = process.env.PAYSTACK_SECRET_KEY;
@@ -187,7 +189,7 @@ export async function initiateDirectPayment(req: AuthRequest, res: Response): Pr
         email: vendorEmail,
         amount: Math.round(amount * 100),
         reference: txRef,
-        callback_url: `https://meetadollexhibition.com/payment/callback`,
+        callback_url: PAYSTACK_CALLBACK_URL,
         metadata: { reservation_id: reservationId, exhibition_name: exhibitionName },
       }),
     });
@@ -313,7 +315,7 @@ export async function initiatePayment(req: AuthRequest, res: Response): Promise<
         email: userData?.email ?? user.email,
         amount: Math.round(reservationAmount * 100),
         reference: txRef,
-        callback_url: `https://meetadollexhibition.com/payment/callback`,
+        callback_url: PAYSTACK_CALLBACK_URL,
         metadata: {
           reservation_id,
           exhibition_name: stallData?.exhibitions?.name ?? "",
@@ -539,4 +541,19 @@ export async function paymentWebhook(req: Request, res: Response): Promise<void>
     logger.error({ err }, "Webhook processing error");
     res.status(500).json({ error: "Something went wrong" });
   }
+}
+
+// Paystack returns the customer here after checkout. Keep the callback URL on
+// the API host, then hand the query string to the frontend callback screen.
+export function paymentCallback(req: Request, res: Response): void {
+  const query = new URLSearchParams();
+  for (const [key, value] of Object.entries(req.query)) {
+    if (typeof value === "string") query.set(key, value);
+  }
+
+  const queryString = query.toString();
+  res.redirect(
+    302,
+    `https://meetadollexhibition.com/payment/callback${queryString ? `?${queryString}` : ""}`,
+  );
 }

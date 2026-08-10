@@ -1,7 +1,12 @@
 import { Router } from "express";
 import { body } from "express-validator";
 import { authenticate } from "../middleware/auth";
-import { initiatePayment, initiateDirectPayment, paymentWebhook } from "../controllers/paymentController";
+import {
+  initiatePayment,
+  initiateDirectPayment,
+  paymentWebhook,
+  paymentCallback,
+} from "../controllers/paymentController";
 import { validate } from "../middleware/validate";
 import { suspiciousActivityLimiter } from "../middleware/rateLimit";
 
@@ -27,6 +32,8 @@ router.post(
   initiatePayment
 );
 
+// Configure this URL in Paystack: https://meetadollexhibition-api.onrender.com/api/payments/webhook
 router.post("/webhook", paymentWebhook);
+router.get("/callback", paymentCallback);
 
 export default router;
