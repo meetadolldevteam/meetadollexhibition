@@ -1,6 +1,6 @@
 {
-  "buildCommand": "cd artifacts/meetadoll-exhibition && pnpm install && pnpm build",
-  "outputDirectory": "artifacts/meetadoll-exhibition/dist/public",
+  "buildCommand": "pnpm build",
+  "outputDirectory": "dist/public",
   "installCommand": "pnpm install",
   "framework": "vite"
 }
