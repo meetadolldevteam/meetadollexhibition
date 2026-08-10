@@ -1,8 +1,6 @@
 {
-  "buildCommand": "pnpm --filter @workspace/meetadoll-exhibition run build",
+  "buildCommand": "cd artifacts/meetadoll-exhibition && pnpm install && pnpm build",
   "outputDirectory": "artifacts/meetadoll-exhibition/dist/public",
-  "installCommand": "pnpm install --frozen-lockfile",
-  "rewrites": [
-    { "source": "/(.*)", "destination": "/index.html" }
-  ]
+  "installCommand": "pnpm install",
+  "framework": "vite"
 }
