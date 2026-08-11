@@ -9,13 +9,16 @@ const basePath = process.env.BASE_PATH ?? "/";
 const verificationEnv = {
   VITE_GSC_VERIFICATION: process.env.VITE_GSC_VERIFICATION ?? "",
   VITE_BING_VERIFICATION: process.env.VITE_BING_VERIFICATION ?? "",
+  VITE_GA_MEASUREMENT_ID: process.env.VITE_GA_MEASUREMENT_ID ?? "",
 };
 
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   base: basePath,
+  // The Replit overlay is useful in the dev preview but must not be bundled
+  // into production deployments such as Vercel.
   plugins: [
     react(),
-    runtimeErrorOverlay(),
+    ...(mode === "development" ? [runtimeErrorOverlay()] : []),
   ],
   resolve: {
     alias: {
@@ -31,6 +34,7 @@ export default defineConfig({
   define: {
     "import.meta.env.VITE_GSC_VERIFICATION": JSON.stringify(verificationEnv.VITE_GSC_VERIFICATION),
     "import.meta.env.VITE_BING_VERIFICATION": JSON.stringify(verificationEnv.VITE_BING_VERIFICATION),
+    "import.meta.env.VITE_GA_MEASUREMENT_ID": JSON.stringify(verificationEnv.VITE_GA_MEASUREMENT_ID),
   },
   server: {
     port,
@@ -43,4 +47,4 @@ export default defineConfig({
     host: "0.0.0.0",
     allowedHosts: true,
   },
-});
+}));

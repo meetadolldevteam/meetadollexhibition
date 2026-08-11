@@ -1,6 +1,13 @@
 import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
+import AppErrorBoundary from "./components/AppErrorBoundary";
 import "./index.css";
+
+const rootElement = document.getElementById("root");
+
+if (!rootElement) {
+  throw new Error("Meetadoll app root element was not found");
+}
 
 if (window.location.hostname === "www.meetadollexhibition.com") {
   window.location.replace(
@@ -10,5 +17,9 @@ if (window.location.hostname === "www.meetadollexhibition.com") {
       window.location.hash
   );
 } else {
-  createRoot(document.getElementById("root")!).render(<App />);
+  createRoot(rootElement).render(
+    <AppErrorBoundary>
+      <App />
+    </AppErrorBoundary>,
+  );
 }

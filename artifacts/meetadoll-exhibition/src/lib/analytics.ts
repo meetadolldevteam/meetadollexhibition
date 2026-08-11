@@ -5,7 +5,7 @@ declare global {
   }
 }
 
-const GA_ID = import.meta.env.VITE_GA_MEASUREMENT_ID as string | undefined;
+const GA_ID = import.meta.env.VITE_GA_MEASUREMENT_ID ?? "";
 
 export function initGA(): void {
   if (!GA_ID || !import.meta.env.PROD) return;
