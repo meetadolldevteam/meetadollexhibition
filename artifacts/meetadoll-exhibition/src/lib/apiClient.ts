@@ -1,4 +1,4 @@
-const API_URL = import.meta.env.VITE_API_URL ?? "/api";
+const API_URL = "https://meetadollexhibition-api.onrender.com/api";
 
 let accessToken: string | null = null;
 let refreshPromise: Promise<string | null> | null = null;

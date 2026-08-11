@@ -34,7 +34,7 @@ const TicketsSection = () => {
   const [stalls, setStalls] = useState<StallData[]>([]);
 
   useEffect(() => {
-    const API = import.meta.env.VITE_API_URL ?? "/api";
+    const API = "https://meetadollexhibition-api.onrender.com/api";
     fetch(`${API}/exhibitions`)
       .then((r) => r.json())
       .then((d: { exhibitions: Exhibition[] }) => {
