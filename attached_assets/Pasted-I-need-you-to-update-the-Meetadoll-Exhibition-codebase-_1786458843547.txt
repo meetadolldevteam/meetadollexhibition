@@ -1,0 +1,301 @@
+I need you to update the Meetadoll Exhibition codebase so that:
+
+https://www.meetadollexhibition.com
+
+is the SINGLE canonical production domain.
+
+IMPORTANT:
+Do not change DNS records.
+Do not change the Render backend URL.
+Do not add unnecessary configuration.
+Do not make speculative changes.
+Inspect the existing codebase first, then make only the changes required for canonical www-domain handling.
+
+CURRENT PROBLEM:
+Vercel is currently configured so that:
+
+meetadollexhibition.com → 308 → www.meetadollexhibition.com
+
+However, the frontend currently contains logic that redirects:
+
+www.meetadollexhibition.com → meetadollexhibition.com
+
+This creates an infinite redirect loop.
+
+I want the canonical direction to be:
+
+meetadollexhibition.com
+        ↓ 308
+www.meetadollexhibition.com
+        ↓
+Production application
+
+==================================================
+REQUIRED CHANGES
+==================================================
+
+1. FRONTEND HOSTNAME REDIRECT
+
+Inspect:
+
+artifacts/meetadoll-exhibition/src/main.tsx
+
+There is currently logic similar to:
+
+if (window.location.hostname === "www.meetadollexhibition.com") {
+  window.location.replace(
+    "https://meetadollexhibition.com" +
+      window.location.pathname +
+      window.location.search +
+      window.location.hash
+  );
+}
+
+REMOVE this www → non-www redirect entirely.
+
+Do NOT replace it with another client-side redirect unless the existing architecture absolutely requires one.
+
+Vercel will handle:
+
+non-www → www
+
+The frontend should simply load normally on www.
+
+==================================================
+2. BACKEND CANONICAL HOST REDIRECT
+==================================================
+
+Inspect:
+
+artifacts/api-server/src/app.ts
+
+There is currently middleware that redirects:
+
+www.* → meetadollexhibition.com
+
+This is now the WRONG direction.
+
+Change the canonical redirect so that if the backend receives a request on:
+
+meetadollexhibition.com
+
+it redirects to:
+
+https://www.meetadollexhibition.com
+
+However, be careful:
+
+The Render API hostname itself is:
+
+https://meetadollexhibition-api.onrender.com
+
+DO NOT redirect the Render hostname.
+
+Only implement hostname canonicalization if the request Host actually matches the Meetadoll Exhibition frontend domains.
+
+Do not create a redirect loop.
+
+==================================================
+3. PAYMENT CALLBACK
+==================================================
+
+Inspect:
+
+artifacts/api-server/src/controllers/paymentController.ts
+
+The payment callback currently redirects to:
+
+https://meetadollexhibition.com/payment/callback
+
+Change this to:
+
+https://www.meetadollexhibition.com/payment/callback
+
+Preserve the existing query-string behavior.
+
+Do not change the payment logic itself.
+
+==================================================
+4. CANONICAL URL IN index.html
+==================================================
+
+Inspect:
+
+artifacts/meetadoll-exhibition/index.html
+
+Change:
+
+<link rel="canonical" href="https://meetadollexhibition.com/" />
+
+to:
+
+<link rel="canonical" href="https://www.meetadollexhibition.com/" />
+
+Also inspect all Open Graph, Twitter, schema.org, image, and other absolute URLs in this file.
+
+Where they represent the website's canonical public URL, change them from:
+
+https://meetadollexhibition.com
+
+to:
+
+https://www.meetadollexhibition.com
+
+Do NOT change external services or the Render API URL.
+
+==================================================
+5. REACT APP CANONICAL URL
+==================================================
+
+Inspect:
+
+artifacts/meetadoll-exhibition/src/App.tsx
+
+There is currently something similar to:
+
+const CANONICAL_BASE = "https://meetadollexhibition.com";
+
+Change it to:
+
+const CANONICAL_BASE = "https://www.meetadollexhibition.com";
+
+Ensure dynamically generated canonical URLs also use the www domain.
+
+==================================================
+6. SEARCH THE ENTIRE REPOSITORY
+==================================================
+
+Perform a repository-wide search for:
+
+meetadollexhibition.com
+
+and identify every occurrence.
+
+For each occurrence, determine whether it represents:
+
+A. The public website's canonical URL
+B. The Render API
+C. An email/DNS/service configuration
+D. Documentation/example text
+E. A redirect
+
+For public website URLs and canonical redirects, make them consistent with:
+
+https://www.meetadollexhibition.com
+
+Do NOT blindly replace every occurrence.
+
+In particular, DO NOT modify:
+
+https://meetadollexhibition-api.onrender.com
+
+==================================================
+7. AUTHENTICATION / CORS
+==================================================
+
+Inspect the authentication and CORS configuration.
+
+The backend should allow both:
+
+https://www.meetadollexhibition.com
+https://meetadollexhibition.com
+
+as frontend origins where appropriate.
+
+Do not remove the non-www origin simply because www is canonical. It may still receive the initial request before Vercel redirects it.
+
+Do not introduce an authentication redirect loop.
+
+==================================================
+8. API CLIENT
+==================================================
+
+Do NOT change:
+
+https://meetadollexhibition-api.onrender.com/api
+
+The frontend API client must continue using the Render backend.
+
+Also inspect any direct fetch calls and make sure they still point to the Render API.
+
+==================================================
+9. SPA ROUTING
+
+Do not add a Vercel SPA rewrite merely because it was suggested in a previous diagnostic report.
+
+First determine whether the application already handles SPA routing correctly.
+
+Only modify SPA routing if you can demonstrate an actual routing problem.
+
+This task is specifically about canonical-domain handling and the redirect loop.
+
+==================================================
+10. REDIRECT LOOP VERIFICATION
+==================================================
+
+After making the changes, verify that there is NO possibility of this loop:
+
+www → non-www → www
+
+The intended behavior is:
+
+non-www
+→ 308
+→ www
+→ application
+
+The frontend itself must NOT redirect www back to non-www.
+
+==================================================
+11. BUILD / VALIDATION
+==================================================
+
+Run the appropriate production build and type/lint checks available in the repository.
+
+Verify that:
+
+- The project builds successfully.
+- No TypeScript errors were introduced.
+- No Replit development-only dependency was accidentally moved into production.
+- Render API URLs remain unchanged.
+- Payment callback behavior remains intact.
+- Authentication behavior remains intact.
+
+==================================================
+12. GIT COMMIT AND PUSH
+==================================================
+
+After all changes are verified:
+
+1. Show me the files you changed.
+2. Show me a concise summary of each change.
+3. Show me the final redirect architecture.
+4. Run git diff and inspect the changes.
+5. Commit the changes with this commit message:
+
+fix: make www canonical domain
+
+6. Push the commit to the repository's current GitHub remote and current branch.
+
+Do NOT create a new repository.
+Do NOT change branches unless necessary.
+Do NOT force push.
+Do NOT modify unrelated files.
+
+FINAL EXPECTED ARCHITECTURE:
+
+https://meetadollexhibition.com
+        │
+        │ 308 Permanent Redirect
+        ▼
+https://www.meetadollexhibition.com
+        │
+        ▼
+Vercel Production
+        │
+        ├── React frontend
+        │
+        └── Render API
+            https://meetadollexhibition-api.onrender.com
+
+The critical requirement is that there must be ZERO redirects from www back to non-www anywhere in the application.
