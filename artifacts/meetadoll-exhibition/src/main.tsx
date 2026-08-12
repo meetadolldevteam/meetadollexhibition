@@ -9,17 +9,8 @@ if (!rootElement) {
   throw new Error("Meetadoll app root element was not found");
 }
 
-if (window.location.hostname === "www.meetadollexhibition.com") {
-  window.location.replace(
-    "https://meetadollexhibition.com" +
-      window.location.pathname +
-      window.location.search +
-      window.location.hash
-  );
-} else {
-  createRoot(rootElement).render(
-    <AppErrorBoundary>
-      <App />
-    </AppErrorBoundary>,
-  );
-}
+createRoot(rootElement).render(
+  <AppErrorBoundary>
+    <App />
+  </AppErrorBoundary>,
+);

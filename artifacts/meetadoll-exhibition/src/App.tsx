@@ -19,7 +19,7 @@ import PrivacyPage from "./pages/PrivacyPage.tsx";
 import DevAuthPage from "./pages/DevAuthPage.tsx";
 import BusinessProfilePage from "./pages/BusinessProfilePage.tsx";
 
-const CANONICAL_BASE = "https://meetadollexhibition.com";
+const CANONICAL_BASE = "https://www.meetadollexhibition.com";
 const DEFAULT_DESCRIPTION =
   "Reserve your vendor stall for the Meetadoll Exhibition. Nigeria's premier curated marketplace of lifestyle, commerce, and entertainment.";
 

@@ -280,7 +280,7 @@ async function renderTicketPDF(reservation: TicketData): Promise<Buffer> {
       .fillColor("#9ca3af")
       .fontSize(7)
       .font("Helvetica")
-      .text("meetadollexhibition.com", B, qrY + qrSize + 20, {
+      .text("www.meetadollexhibition.com", B, qrY + qrSize + 20, {
         width: W - B * 2,
         align: "center",
         lineBreak: false,

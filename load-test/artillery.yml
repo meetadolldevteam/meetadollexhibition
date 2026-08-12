@@ -1,8 +1,8 @@
 config:
   # Point this at your production domain or local proxy
-  # Production: https://meetadollexhibition.com
+  # Production: https://www.meetadollexhibition.com
   # Local dev:  http://localhost:80
-  target: "https://meetadollexhibition.com"
+  target: "https://www.meetadollexhibition.com"
   phases:
     # Warm-up: ramp from 10 → 100 users over 60 s
     - duration: 60

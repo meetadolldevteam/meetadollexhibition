@@ -11,8 +11,8 @@ function getResendClient() {
 
 const FROM_EMAIL = process.env.FROM_EMAIL ?? "Meetadoll Exhibition <noreply@meetadollexhibition.com>";
 const ORGANIZER_WHATSAPP = "https://wa.me/2349063604449";
-const TERMS_URL = process.env.FRONTEND_URL ? `${process.env.FRONTEND_URL}/terms` : "https://meetadollexhibition.com/terms";
-const PRIVACY_URL = process.env.FRONTEND_URL ? `${process.env.FRONTEND_URL}/privacy` : "https://meetadollexhibition.com/privacy";
+const TERMS_URL = process.env.FRONTEND_URL ? `${process.env.FRONTEND_URL}/terms` : "https://www.meetadollexhibition.com/terms";
+const PRIVACY_URL = process.env.FRONTEND_URL ? `${process.env.FRONTEND_URL}/privacy` : "https://www.meetadollexhibition.com/privacy";
 
 interface ConfirmationEmailData {
   to: string;

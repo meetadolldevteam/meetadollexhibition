@@ -15,12 +15,12 @@ const app: Express = express();
 
 app.set("trust proxy", 1);
 
-// ── www → canonical redirect ──────────────────────────────────────────────────
+// ── Canonical host redirect: apex → www ───────────────────────────────────────
 app.use((req: Request, res: Response, next: NextFunction) => {
-  const host = req.headers.host ?? "";
-  if (host.startsWith("www.")) {
-    const code = req.method === "GET" || req.method === "HEAD" ? 301 : 308;
-    return res.redirect(code, `https://meetadollexhibition.com${req.url}`);
+  // Only canonicalize the frontend apex host. Never redirect the Render API
+  // hostname or unrelated hosts that may reach this service.
+  if (req.hostname === "meetadollexhibition.com") {
+    return res.redirect(308, `https://www.meetadollexhibition.com${req.url}`);
   }
   next();
 });
