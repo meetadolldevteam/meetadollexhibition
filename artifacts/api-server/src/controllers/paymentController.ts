@@ -554,6 +554,10 @@ export function paymentCallback(req: Request, res: Response): void {
   const queryString = query.toString();
   res.redirect(
     302,
-    `https://www.meetadollexhibition.com/payment/callback${queryString ? `?${queryString}` : ""}`,
+    // OLD (line 557):
+`https://www.meetadollexhibition.com/payment/callback${queryString ? `?${queryString}` : ""}`
+
+// NEW:
+`https://meetadollexhibition.com/payment/callback${queryString ? `?${queryString}` : ""}`
   );
 }
