@@ -3,7 +3,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { CheckCircle2, XCircle, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-const WHATSAPP_COMMUNITY = "https://chat.whatsapp.com/HRJg6uvyTzPJsoc6dfiIAa?mode=gi_t";
+const WHATSAPP_COMMUNITY = "https://chat.whatsapp.com/EuTfprVqHtqIFxTruYvfgd?s=sw&p=i&mlu=4";
 const REDIRECT_DELAY = 5;
 
 const logo = { url: "/assets/meetadoll-logo.jpg" };
