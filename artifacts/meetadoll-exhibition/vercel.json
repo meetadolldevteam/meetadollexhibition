@@ -4,6 +4,10 @@
   "installCommand": "pnpm install",
   "framework": "vite",
   "rewrites": [
+    { 
+      "source": "/api/(.*)", 
+      "destination": "https://meetadollexhibition-api.onrender.com/api/$1" 
+    },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }
